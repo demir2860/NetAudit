@@ -1,0 +1,66 @@
+name: Build NetAudit Pro - Windows x64
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 6 SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Restore NuGet packages
+      run: dotnet restore NetAudit.sln
+
+    - name: Build solution
+      run: dotnet build NetAudit.sln -c Release --no-restore
+
+    - name: Publish NetAudit.UI (Single File Executable)
+      run: dotnet publish NetAudit.UI/NetAudit.UI.csproj -c Release -o ./dist --self-contained
+
+    - name: Create InnoSetup installer
+      run: |
+        # Download InnoSetup if not present
+        if (-Not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+          choco install innosetup -y
+        }
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" netaudit-installer.iss
+      shell: powershell
+
+    - name: Upload Artifacts - Executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: NetAuditPro-exe
+        path: dist/NetAudit.UI.exe
+        retention-days: 90
+
+    - name: Upload Artifacts - Installer
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: NetAuditPro-installer
+        path: Output/NetAuditPro-*.exe
+        retention-days: 90
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/NetAudit.UI.exe
+          Output/NetAuditPro-*.exe
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
