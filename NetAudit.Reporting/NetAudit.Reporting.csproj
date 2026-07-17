@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="QuestPDF" Version="2024.8.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NetAudit.Core\NetAudit.Core.csproj" />
+    <ProjectReference Include="..\NetAudit.Database\NetAudit.Database.csproj" />
+  </ItemGroup>
+</Project>
