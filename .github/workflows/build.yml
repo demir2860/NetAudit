@@ -1,0 +1,34 @@
+name: Build NetAudit Pro Wireshark
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Restore
+      run: dotnet restore NetAudit.UI/NetAudit.UI.csproj
+
+    - name: Build
+      run: dotnet build NetAudit.UI/NetAudit.UI.csproj -c Release
+
+    - name: Publish Single File
+      run: dotnet publish NetAudit.UI/NetAudit.UI.csproj -c Release -o ./dist --self-contained
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: NetAudit-Wireshark
+        path: dist/
+        retention-days: 90
