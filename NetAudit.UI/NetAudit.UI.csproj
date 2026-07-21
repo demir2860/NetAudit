@@ -1,27 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
-
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net6.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
-    <LangVersion>latest</LangVersion>
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AssemblyName>NetAuditWireshark</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="7.0.0" />
+    <PackageReference Include="SharpPcap" Version="6.2.5" />
+    <PackageReference Include="PacketDotNet" Version="1.4.7" />
     <PackageReference Include="Serilog" Version="3.0.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
   </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\NetAudit.Core\NetAudit.Core.csproj" />
-    <ProjectReference Include="..\NetAudit.Database\NetAudit.Database.csproj" />
-  </ItemGroup>
-
 </Project>
