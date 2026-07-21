@@ -23,12 +23,19 @@ jobs:
     - name: Build
       run: dotnet build NetAudit.UI/NetAudit.UI.csproj -c Release
 
-    - name: Publish Single File
+    - name: Publish
       run: dotnet publish NetAudit.UI/NetAudit.UI.csproj -c Release -o ./dist --self-contained
+
+    - name: Rename EXE
+      shell: pwsh
+      run: |
+        if (Test-Path dist/NetAudit.UI.exe) {
+          Rename-Item -Path dist/NetAudit.UI.exe -NewName NetAuditWireshark.exe
+        }
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: NetAudit-Wireshark
+        name: NetAuditWireshark
         path: dist/
         retention-days: 90
