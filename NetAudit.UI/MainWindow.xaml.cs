@@ -32,9 +32,25 @@ public partial class MainWindow : Window
         DeviceSelector.Items.Clear();
         foreach (var device in CaptureDeviceList.Instance)
         {
-            DeviceSelector.Items.Add($"{device.Name}");
+            var type = GetDeviceType(device.Description);
+            var displayName = $"[{type}] {device.Description}";
+            DeviceSelector.Items.Add(displayName);
         }
         if (DeviceSelector.Items.Count > 0) DeviceSelector.SelectedIndex = 0;
+    }
+
+    private string GetDeviceType(string description)
+    {
+        if (string.IsNullOrEmpty(description)) return "Unknown";
+
+        if (description.Contains("Wireless") || description.Contains("WiFi") || description.Contains("802.11"))
+            return "WiFi";
+        if (description.Contains("VPN") || description.Contains("OpenVPN") || description.Contains("Wireguard") || description.Contains("Tap"))
+            return "VPN";
+        if (description.Contains("Loopback") || description.Contains("Npcap Loopback"))
+            return "Loop";
+        
+        return "Network";
     }
 
     private void OnStartCapture(object sender, RoutedEventArgs e)
