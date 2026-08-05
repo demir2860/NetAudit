@@ -17,6 +17,8 @@ public partial class MainWindow : Window
     private ObservableCollection<PacketRow> _packets = new();
     private List<PacketRow> _allPackets = new();
     private int _packetCount = 0;
+    private Dictionary<string, int> _protocolCounts = new();
+    private ObservableCollection<ProtocolStatItem> _protocolStatsObservable = new();
     private bool _isCapturing = false;
 
     public MainWindow()
@@ -24,6 +26,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         PacketGrid.ItemsSource = _packets;
         PacketGrid.SelectionChanged += OnPacketSelected;
+        ProtocolStats.ItemsSource = _protocolStatsObservable;
         LoadDevices();
     }
 
@@ -33,8 +36,7 @@ public partial class MainWindow : Window
         foreach (var device in CaptureDeviceList.Instance)
         {
             var type = GetDeviceType(device.Description);
-            var displayName = $"[{type}] {device.Description}";
-            DeviceSelector.Items.Add(displayName);
+            DeviceSelector.Items.Add($"[{type}] {device.Description}");
         }
         if (DeviceSelector.Items.Count > 0) DeviceSelector.SelectedIndex = 0;
     }
@@ -42,14 +44,12 @@ public partial class MainWindow : Window
     private string GetDeviceType(string description)
     {
         if (string.IsNullOrEmpty(description)) return "Unknown";
-
         if (description.Contains("Wireless") || description.Contains("WiFi") || description.Contains("802.11"))
             return "WiFi";
         if (description.Contains("VPN") || description.Contains("OpenVPN") || description.Contains("Wireguard") || description.Contains("Tap"))
             return "VPN";
         if (description.Contains("Loopback") || description.Contains("Npcap Loopback"))
             return "Loop";
-        
         return "Network";
     }
 
@@ -87,11 +87,18 @@ public partial class MainWindow : Window
                 {
                     protocol = "UDP";
                     info = $"{udpPacket.SourcePort} → {udpPacket.DestinationPort}";
+                    
+                    if (udpPacket.DestinationPort == 53 || udpPacket.SourcePort == 53)
+                        protocol = "DNS";
                 }
                 else if (ipPacket != null)
                 {
                     protocol = ipPacket.Protocol.ToString();
                 }
+
+                if (!_protocolCounts.ContainsKey(protocol))
+                    _protocolCounts[protocol] = 0;
+                _protocolCounts[protocol]++;
 
                 var packetRow = new PacketRow
                 {
@@ -109,10 +116,26 @@ public partial class MainWindow : Window
                 _allPackets.Add(packetRow);
                 _packets.Add(packetRow);
                 PacketCount.Text = $"Packets: {_packetCount}";
+                
+                UpdateProtocolStats();
             });
         };
 
         _currentDevice.StartCapture();
+    }
+
+    private void UpdateProtocolStats()
+    {
+        _protocolStatsObservable.Clear();
+        foreach (var stat in _protocolCounts.OrderByDescending(x => x.Value))
+        {
+            _protocolStatsObservable.Add(new ProtocolStatItem 
+            { 
+                Protocol = stat.Key, 
+                Count = stat.Value,
+                CountText = $"{stat.Value} packets"
+            });
+        }
     }
 
     private void OnStopCapture(object sender, RoutedEventArgs e)
@@ -130,29 +153,45 @@ public partial class MainWindow : Window
         _packets.Clear();
         _allPackets.Clear();
         _packetCount = 0;
+        _protocolCounts.Clear();
+        _protocolStatsObservable.Clear();
         PacketCount.Text = "Packets: 0";
         DetailView.Text = "";
+        FilterBox.Clear();
     }
 
     private void OnApplyFilter(object sender, RoutedEventArgs e)
     {
-        string filter = FilterBox.Text.ToLower();
-        if (string.IsNullOrWhiteSpace(filter))
+        string filterText = FilterBox.Text.ToLower().Trim();
+        if (string.IsNullOrWhiteSpace(filterText))
         {
             _packets.Clear();
             foreach (var p in _allPackets) _packets.Add(p);
             return;
         }
 
+        var filters = filterText.Split('|').Select(f => f.Trim()).Where(f => !string.IsNullOrEmpty(f)).ToList();
+        
         var filtered = _allPackets.Where(p =>
-            p.Source.Contains(filter) ||
-            p.Destination.Contains(filter) ||
-            p.Protocol.ToLower().Contains(filter) ||
-            p.Info.ToLower().Contains(filter)
+            filters.Any(f =>
+                p.Source.ToLower().Contains(f) ||
+                p.Destination.ToLower().Contains(f) ||
+                p.Protocol.ToLower().Contains(f) ||
+                p.Info.ToLower().Contains(f)
+            )
         ).ToList();
 
         _packets.Clear();
         foreach (var p in filtered) _packets.Add(p);
+    }
+
+    private void OnProtocolDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (ProtocolStats.SelectedItem is ProtocolStatItem stat)
+        {
+            FilterBox.Text = stat.Protocol;
+            OnApplyFilter(null, null);
+        }
     }
 
     private void OnPacketSelected(object sender, SelectionChangedEventArgs e)
@@ -207,4 +246,11 @@ public class PacketRow
     public string Info { get; set; } = "";
     public Packet? RawPacket { get; set; }
     public RawCapture? RawCapture { get; set; }
+}
+
+public class ProtocolStatItem
+{
+    public string Protocol { get; set; } = "";
+    public int Count { get; set; }
+    public string CountText { get; set; } = "";
 }
