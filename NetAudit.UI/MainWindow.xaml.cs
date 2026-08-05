@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private List<PacketRow> _allPackets = new();
     private int _packetCount = 0;
     private Dictionary<string, int> _protocolStats = new();
+    private ObservableCollection<ProtocolStat> _protocolStatsObservable = new();
     private bool _isCapturing = false;
 
     public MainWindow()
@@ -25,6 +26,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         PacketGrid.ItemsSource = _packets;
         PacketGrid.SelectionChanged += OnPacketSelected;
+        ProtocolStats.ItemsSource = _protocolStatsObservable;
         LoadDevices();
     }
 
@@ -59,6 +61,8 @@ public partial class MainWindow : Window
                 var ipPacket = packet.Extract<IPPacket>();
                 var tcpPacket = packet.Extract<TcpPacket>();
                 var udpPacket = packet.Extract<UdpPacket>();
+                var arpPacket = packet.Extract<ARPPacket>();
+                var icmpV4Packet = packet.Extract<ICMPv4Packet>();
 
                 string protocol = "Other";
                 string info = "";
@@ -72,6 +76,19 @@ public partial class MainWindow : Window
                 {
                     protocol = "UDP";
                     info = $"UDP {udpPacket.SourcePort} → {udpPacket.DestinationPort}";
+                    
+                    if (udpPacket.DestinationPort == 53 || udpPacket.SourcePort == 53)
+                        protocol = "DNS";
+                }
+                else if (icmpV4Packet != null)
+                {
+                    protocol = "ICMP";
+                    info = $"ICMP Type {icmpV4Packet.TypeCode}";
+                }
+                else if (arpPacket != null)
+                {
+                    protocol = "ARP";
+                    info = $"ARP {arpPacket.SenderProtocolAddress} - {arpPacket.TargetProtocolAddress}";
                 }
                 else if (ipPacket != null)
                 {
@@ -102,11 +119,23 @@ public partial class MainWindow : Window
                 _allPackets.Add(packetRow);
                 _packets.Add(packetRow);
                 PacketCount.Text = $"Packets: {_packetCount}";
+                
+                UpdateProtocolStats();
             });
         };
 
         _currentDevice.StartCapture();
         Log.Information("Capture started on {Device}", _currentDevice.Name);
+    }
+
+    private void UpdateProtocolStats()
+    {
+        _protocolStatsObservable.Clear();
+        var sorted = _protocolStats.OrderByDescending(x => x.Value);
+        foreach (var stat in sorted)
+        {
+            _protocolStatsObservable.Add(new ProtocolStat { Protocol = stat.Key, Count = stat.Value });
+        }
     }
 
     private void OnStopCapture(object sender, RoutedEventArgs e)
@@ -126,6 +155,7 @@ public partial class MainWindow : Window
         _allPackets.Clear();
         _packetCount = 0;
         _protocolStats.Clear();
+        _protocolStatsObservable.Clear();
         PacketCount.Text = "Packets: 0";
         DetailView.Text = "";
     }
@@ -199,6 +229,23 @@ public partial class MainWindow : Window
             sb.AppendLine();
         }
 
+        var icmpPacket = packet.RawPacket.Extract<ICMPv4Packet>();
+        if (icmpPacket != null)
+        {
+            sb.AppendLine($"ICMP Type: {icmpPacket.TypeCode}");
+            sb.AppendLine($"ICMP Code: {icmpPacket.Code}");
+            sb.AppendLine();
+        }
+
+        var arpPacket = packet.RawPacket.Extract<ARPPacket>();
+        if (arpPacket != null)
+        {
+            sb.AppendLine($"ARP Operation: {arpPacket.Operation}");
+            sb.AppendLine($"Sender IP: {arpPacket.SenderProtocolAddress}");
+            sb.AppendLine($"Target IP: {arpPacket.TargetProtocolAddress}");
+            sb.AppendLine();
+        }
+
         sb.AppendLine();
         sb.AppendLine("=== Raw Hex (first 256 bytes) ===");
         if (packet.RawCapture?.Data != null)
@@ -228,4 +275,10 @@ public class PacketRow
     public string Info { get; set; } = "";
     public Packet? RawPacket { get; set; }
     public RawCapture? RawCapture { get; set; }
+}
+
+public class ProtocolStat
+{
+    public string Protocol { get; set; } = "";
+    public int Count { get; set; }
 }

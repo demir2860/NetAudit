@@ -12,9 +12,14 @@
             <RowDefinition Height="5"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="5"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
         <!-- TOP TOOLBAR -->
-        <Border Grid.Row="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="10">
+        <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="10">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <ComboBox x:Name="DeviceSelector" Width="300" Padding="8" Margin="0,0,10,0"/>
                 <Button x:Name="BtnStart" Content="▶ Start" Padding="12,6" Background="#4CAF50" Foreground="White" Click="OnStartCapture"/>
@@ -28,7 +33,7 @@
         </Border>
 
         <!-- PACKET LIST -->
-        <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0">
+        <Border Grid.Row="1" Grid.Column="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0">
             <DataGrid x:Name="PacketGrid" AutoGenerateColumns="False" GridLinesVisibility="All">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="No." Binding="{Binding No}" Width="50"/>
@@ -42,13 +47,33 @@
             </DataGrid>
         </Border>
 
-        <!-- SPLITTER -->
-        <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch" Background="#DDD" Cursor="SizeNS"/>
+        <!-- VERTICAL SPLITTER (between packet list and stats) -->
+        <GridSplitter Grid.Row="1" Grid.RowSpan="3" Grid.Column="1" Width="5" VerticalAlignment="Stretch" HorizontalAlignment="Center" Background="#DDD" Cursor="SizeWE"/>
 
-        <!-- PACKET DETAILS -->
-        <Border Grid.Row="3" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0">
+        <!-- HORIZONTAL SPLITTER (between packet list and details) -->
+        <GridSplitter Grid.Row="2" Grid.Column="0" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="#DDD" Cursor="SizeNS"/>
+
+        <!-- PACKET DETAILS (bottom left) -->
+        <Border Grid.Row="3" Grid.Column="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0">
             <TextBox x:Name="DetailView" IsReadOnly="True" Background="White" Foreground="#333"
                      FontFamily="Courier New" FontSize="10" TextWrapping="Wrap" Padding="10" Margin="0"/>
+        </Border>
+
+        <!-- PROTOCOL STATISTICS (right pane) -->
+        <Border Grid.Row="1" Grid.RowSpan="3" Grid.Column="2" Background="#F9F9F9" BorderBrush="#E0E0E0" BorderThickness="1,0,0,0" Padding="10">
+            <StackPanel Orientation="Vertical">
+                <TextBlock Text="Protocol Statistics" FontWeight="Bold" FontSize="12" Margin="0,0,0,10"/>
+                <ListBox x:Name="ProtocolStats" Background="Transparent" BorderThickness="0" ItemsSource="{Binding}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="{Binding Key}" Width="80" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding Value}" Foreground="#1976D2" FontWeight="Bold"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
         </Border>
     </Grid>
 </Window>
