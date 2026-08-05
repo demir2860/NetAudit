@@ -20,12 +20,6 @@ public partial class MainWindow : Window
     private Dictionary<string, int> _protocolStats = new();
     private ObservableCollection<ProtocolStat> _protocolStatsObservable = new();
     private bool _isCapturing = false;
-    
-    private Dictionary<string, int> _macSourceMap = new();
-    private int _broadcastCount = 0;
-    private int _arpCount = 0;
-    private DateTime _lastSecond = DateTime.Now;
-    private int _packetsThisSecond = 0;
 
     public MainWindow()
     {
@@ -64,26 +58,12 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() =>
             {
                 _packetCount++;
-                _packetsThisSecond++;
-                
                 var ipPacket = packet.Extract<IPPacket>();
                 var tcpPacket = packet.Extract<TcpPacket>();
                 var udpPacket = packet.Extract<UdpPacket>();
-                var arpPacket = packet.Extract<ARPPacket>();
-                var icmpV4Packet = packet.Extract<ICMPv4Packet>();
-                var ethernetPacket = packet as EthernetPacket;
 
                 string protocol = "Other";
                 string info = "";
-                bool isBroadcast = false;
-                bool isMulticast = false;
-
-                if (ethernetPacket != null)
-                {
-                    var destMac = ethernetPacket.DestinationHwAddress.ToString();
-                    isBroadcast = destMac.ToUpper() == "FF:FF:FF:FF:FF:FF";
-                    isMulticast = ethernetPacket.DestinationHwAddress.Bytes[0] % 2 == 1;
-                }
 
                 if (tcpPacket != null)
                 {
@@ -94,20 +74,6 @@ public partial class MainWindow : Window
                 {
                     protocol = "UDP";
                     info = $"UDP {udpPacket.SourcePort} → {udpPacket.DestinationPort}";
-                    
-                    if (udpPacket.DestinationPort == 53 || udpPacket.SourcePort == 53)
-                        protocol = "DNS";
-                }
-                else if (icmpV4Packet != null)
-                {
-                    protocol = "ICMP";
-                    info = $"ICMP Type {icmpV4Packet.TypeCode}";
-                }
-                else if (arpPacket != null)
-                {
-                    protocol = "ARP";
-                    info = $"ARP {arpPacket.SenderProtocolAddress} - {arpPacket.TargetProtocolAddress}";
-                    _arpCount++;
                 }
                 else if (ipPacket != null)
                 {
@@ -115,25 +81,11 @@ public partial class MainWindow : Window
                     info = protocol;
                 }
 
-                if (isBroadcast || isMulticast)
-                    _broadcastCount++;
-
                 lock (_protocolStats)
                 {
                     if (!_protocolStats.ContainsKey(protocol))
                         _protocolStats[protocol] = 0;
                     _protocolStats[protocol]++;
-                }
-
-                if (ipPacket != null)
-                {
-                    string macKey = ipPacket.SourceAddress.ToString();
-                    if (ethernetPacket != null)
-                        macKey = ethernetPacket.SourceHwAddress.ToString();
-                    
-                    if (!_macSourceMap.ContainsKey(macKey))
-                        _macSourceMap[macKey] = 0;
-                    _macSourceMap[macKey]++;
                 }
 
                 var packetRow = new PacketRow
@@ -152,58 +104,11 @@ public partial class MainWindow : Window
                 _allPackets.Add(packetRow);
                 _packets.Add(packetRow);
                 PacketCount.Text = $"Packets: {_packetCount}";
-                
-                UpdateProtocolStats();
-                CheckAnomalies();
             });
         };
 
         _currentDevice.StartCapture();
         Log.Information("Capture started on {Device}", _currentDevice.Name);
-    }
-
-    private void CheckAnomalies()
-    {
-        var now = DateTime.Now;
-        if ((now - _lastSecond).TotalSeconds >= 1)
-        {
-            var pps = _packetsThisSecond;
-            var issues = new List<string>();
-
-            if (pps > 1000)
-                issues.Add($"⚠ HIGH RATE: {pps} pps (loop risk)");
-            
-            if (_broadcastCount > (pps * 0.15))
-                issues.Add($"⚠ BROADCAST STORM: {_broadcastCount} broadcast");
-            
-            if (_arpCount > (pps * 0.10))
-                issues.Add($"⚠ ARP FLOOD: {_arpCount} ARP packets");
-
-            var macFlaps = _macSourceMap.Where(x => x.Value > 5).ToList();
-            if (macFlaps.Count > 0)
-                issues.Add($"⚠ MAC FLAPPING: {macFlaps.Count} duplicate sources");
-
-            if (issues.Count > 0)
-            {
-                DetailView.Text = string.Join("\n", issues) + "\n\n=== NETWORK DIAGNOSTICS ===\n" +
-                    $"Packets/sec: {pps}\nBroadcast: {_broadcastCount}\nARP: {_arpCount}\nUnique MACs: {_macSourceMap.Count}";
-            }
-
-            _packetsThisSecond = 0;
-            _broadcastCount = 0;
-            _arpCount = 0;
-            _lastSecond = now;
-        }
-    }
-
-    private void UpdateProtocolStats()
-    {
-        _protocolStatsObservable.Clear();
-        var sorted = _protocolStats.OrderByDescending(x => x.Value);
-        foreach (var stat in sorted)
-        {
-            _protocolStatsObservable.Add(new ProtocolStat { Protocol = stat.Key, Count = stat.Value });
-        }
     }
 
     private void OnStopCapture(object sender, RoutedEventArgs e)
@@ -223,10 +128,6 @@ public partial class MainWindow : Window
         _allPackets.Clear();
         _packetCount = 0;
         _protocolStats.Clear();
-        _protocolStatsObservable.Clear();
-        _macSourceMap.Clear();
-        _broadcastCount = 0;
-        _arpCount = 0;
         PacketCount.Text = "Packets: 0";
         DetailView.Text = "";
     }
@@ -300,23 +201,6 @@ public partial class MainWindow : Window
             sb.AppendLine();
         }
 
-        var icmpPacket = packet.RawPacket.Extract<ICMPv4Packet>();
-        if (icmpPacket != null)
-        {
-            sb.AppendLine($"ICMP Type: {icmpPacket.TypeCode}");
-            sb.AppendLine($"ICMP Code: {icmpPacket.Code}");
-            sb.AppendLine();
-        }
-
-        var arpPacket = packet.RawPacket.Extract<ARPPacket>();
-        if (arpPacket != null)
-        {
-            sb.AppendLine($"ARP Operation: {arpPacket.Operation}");
-            sb.AppendLine($"Sender IP: {arpPacket.SenderProtocolAddress}");
-            sb.AppendLine($"Target IP: {arpPacket.TargetProtocolAddress}");
-            sb.AppendLine();
-        }
-
         sb.AppendLine();
         sb.AppendLine("=== Raw Hex (first 256 bytes) ===");
         if (packet.RawCapture?.Data != null)
@@ -346,10 +230,4 @@ public class PacketRow
     public string Info { get; set; } = "";
     public Packet? RawPacket { get; set; }
     public RawCapture? RawCapture { get; set; }
-}
-
-public class ProtocolStat
-{
-    public string Protocol { get; set; } = "";
-    public int Count { get; set; }
 }
