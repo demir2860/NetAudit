@@ -17,8 +17,6 @@ public partial class MainWindow : Window
     private ObservableCollection<PacketRow> _packets = new();
     private List<PacketRow> _allPackets = new();
     private int _packetCount = 0;
-    private Dictionary<string, int> _protocolStats = new();
-    private ObservableCollection<ProtocolStat> _protocolStatsObservable = new();
     private bool _isCapturing = false;
 
     public MainWindow()
@@ -26,7 +24,6 @@ public partial class MainWindow : Window
         InitializeComponent();
         PacketGrid.ItemsSource = _packets;
         PacketGrid.SelectionChanged += OnPacketSelected;
-        ProtocolStats.ItemsSource = _protocolStatsObservable;
         LoadDevices();
     }
 
@@ -35,7 +32,7 @@ public partial class MainWindow : Window
         DeviceSelector.Items.Clear();
         foreach (var device in CaptureDeviceList.Instance)
         {
-            DeviceSelector.Items.Add($"{device.Name} - {device.Description}");
+            DeviceSelector.Items.Add($"{device.Name}");
         }
         if (DeviceSelector.Items.Count > 0) DeviceSelector.SelectedIndex = 0;
     }
@@ -68,24 +65,16 @@ public partial class MainWindow : Window
                 if (tcpPacket != null)
                 {
                     protocol = "TCP";
-                    info = $"TCP {tcpPacket.SourcePort} → {tcpPacket.DestinationPort}";
+                    info = $"{tcpPacket.SourcePort} → {tcpPacket.DestinationPort}";
                 }
                 else if (udpPacket != null)
                 {
                     protocol = "UDP";
-                    info = $"UDP {udpPacket.SourcePort} → {udpPacket.DestinationPort}";
+                    info = $"{udpPacket.SourcePort} → {udpPacket.DestinationPort}";
                 }
                 else if (ipPacket != null)
                 {
                     protocol = ipPacket.Protocol.ToString();
-                    info = protocol;
-                }
-
-                lock (_protocolStats)
-                {
-                    if (!_protocolStats.ContainsKey(protocol))
-                        _protocolStats[protocol] = 0;
-                    _protocolStats[protocol]++;
                 }
 
                 var packetRow = new PacketRow
@@ -108,7 +97,6 @@ public partial class MainWindow : Window
         };
 
         _currentDevice.StartCapture();
-        Log.Information("Capture started on {Device}", _currentDevice.Name);
     }
 
     private void OnStopCapture(object sender, RoutedEventArgs e)
@@ -118,7 +106,6 @@ public partial class MainWindow : Window
             _isCapturing = false;
             _currentDevice.StopCapture();
             _currentDevice.Close();
-            Log.Information("Capture stopped. Total packets: {Count}", _packetCount);
         }
     }
 
@@ -127,7 +114,6 @@ public partial class MainWindow : Window
         _packets.Clear();
         _allPackets.Clear();
         _packetCount = 0;
-        _protocolStats.Clear();
         PacketCount.Text = "Packets: 0";
         DetailView.Text = "";
     }
@@ -151,44 +137,34 @@ public partial class MainWindow : Window
 
         _packets.Clear();
         foreach (var p in filtered) _packets.Add(p);
-
-        Log.Information("Filter applied: {Filter} - {Count} packets matched", filter, filtered.Count);
     }
 
     private void OnPacketSelected(object sender, SelectionChangedEventArgs e)
     {
         if (PacketGrid.SelectedItem is not PacketRow packet || packet.RawPacket == null) return;
-
-        DetailView.Text = FormatPacketDetails(packet);
-    }
-
-    private string FormatPacketDetails(PacketRow packet)
-    {
+        
         var sb = new System.Text.StringBuilder();
         sb.AppendLine($"=== Packet #{packet.No} ===");
-        sb.AppendLine($"Timestamp: {packet.Time}");
+        sb.AppendLine($"Time: {packet.Time}");
         sb.AppendLine($"Length: {packet.Length} bytes");
         sb.AppendLine();
 
-        sb.AppendLine("=== Network Layer ===");
         var ipPacket = packet.RawPacket.Extract<IPPacket>();
         if (ipPacket != null)
         {
             sb.AppendLine($"Source IP: {ipPacket.SourceAddress}");
-            sb.AppendLine($"Destination IP: {ipPacket.DestinationAddress}");
-            sb.AppendLine($"Protocol: {ipPacket.Protocol}");
+            sb.AppendLine($"Dest IP: {ipPacket.DestinationAddress}");
             sb.AppendLine($"TTL: {ipPacket.TimeToLive}");
             sb.AppendLine();
         }
 
-        sb.AppendLine("=== Transport Layer ===");
         var tcpPacket = packet.RawPacket.Extract<TcpPacket>();
         if (tcpPacket != null)
         {
             sb.AppendLine($"TCP Source Port: {tcpPacket.SourcePort}");
             sb.AppendLine($"TCP Dest Port: {tcpPacket.DestinationPort}");
-            sb.AppendLine($"Sequence: {tcpPacket.SequenceNumber}");
-            sb.AppendLine($"Acknowledgment: {tcpPacket.AcknowledgmentNumber}");
+            sb.AppendLine($"Seq: {tcpPacket.SequenceNumber}");
+            sb.AppendLine($"Ack: {tcpPacket.AcknowledgmentNumber}");
             sb.AppendLine();
         }
 
@@ -197,25 +173,10 @@ public partial class MainWindow : Window
         {
             sb.AppendLine($"UDP Source Port: {udpPacket.SourcePort}");
             sb.AppendLine($"UDP Dest Port: {udpPacket.DestinationPort}");
-            sb.AppendLine($"Length: {udpPacket.Length}");
             sb.AppendLine();
         }
 
-        sb.AppendLine();
-        sb.AppendLine("=== Raw Hex (first 256 bytes) ===");
-        if (packet.RawCapture?.Data != null)
-        {
-            var data = packet.RawCapture.Data.Take(256).ToArray();
-            for (int i = 0; i < data.Length; i += 16)
-            {
-                var chunk = data.Skip(i).Take(16);
-                sb.Append($"{i:X4}: ");
-                sb.Append(string.Join(" ", chunk.Select(b => $"{b:X2}")));
-                sb.AppendLine();
-            }
-        }
-
-        return sb.ToString();
+        DetailView.Text = sb.ToString();
     }
 }
 
