@@ -56,7 +56,6 @@ public partial class MainWindow : Window
     private void OnStartCapture(object sender, RoutedEventArgs e)
     {
         if (DeviceSelector.SelectedIndex < 0) return;
-
         _isCapturing = true;
         _currentDevice = CaptureDeviceList.Instance[DeviceSelector.SelectedIndex];
         _currentDevice.Open();
@@ -64,7 +63,6 @@ public partial class MainWindow : Window
         _currentDevice.OnPacketArrival += (s, ea) =>
         {
             if (!_isCapturing) return;
-
             var rawCapture = ea.GetPacket();
             var packet = Packet.ParsePacket(rawCapture.LinkLayerType, rawCapture.Data);
 
@@ -78,29 +76,19 @@ public partial class MainWindow : Window
                 string protocol = "Other";
                 string info = "";
 
-                if (tcpPacket != null)
-                {
-                    protocol = "TCP";
-                    info = $"{tcpPacket.SourcePort} → {tcpPacket.DestinationPort}";
-                }
-                else if (udpPacket != null)
-                {
-                    protocol = "UDP";
+                if (tcpPacket != null) { protocol = "TCP"; info = $"{tcpPacket.SourcePort} → {tcpPacket.DestinationPort}"; }
+                else if (udpPacket != null) 
+                { 
+                    protocol = "UDP"; 
                     info = $"{udpPacket.SourcePort} → {udpPacket.DestinationPort}";
-                    
-                    if (udpPacket.DestinationPort == 53 || udpPacket.SourcePort == 53)
-                        protocol = "DNS";
+                    if (udpPacket.DestinationPort == 53 || udpPacket.SourcePort == 53) protocol = "DNS";
                 }
-                else if (ipPacket != null)
-                {
-                    protocol = ipPacket.Protocol.ToString();
-                }
+                else if (ipPacket != null) { protocol = ipPacket.Protocol.ToString(); }
 
-                if (!_protocolCounts.ContainsKey(protocol))
-                    _protocolCounts[protocol] = 0;
+                if (!_protocolCounts.ContainsKey(protocol)) _protocolCounts[protocol] = 0;
                 _protocolCounts[protocol]++;
 
-                var packetRow = new PacketRow
+                _allPackets.Add(new PacketRow
                 {
                     No = _packetCount,
                     Time = DateTime.Now.ToString("HH:mm:ss.fff"),
@@ -111,12 +99,10 @@ public partial class MainWindow : Window
                     Info = info,
                     RawPacket = packet,
                     RawCapture = rawCapture
-                };
+                });
 
-                _allPackets.Add(packetRow);
-                _packets.Add(packetRow);
+                _packets.Add(_allPackets.Last());
                 PacketCount.Text = $"Packets: {_packetCount}";
-                
                 UpdateProtocolStats();
             });
         };
@@ -163,26 +149,21 @@ public partial class MainWindow : Window
     private void OnApplyFilter(object sender, RoutedEventArgs e)
     {
         string filterText = FilterBox.Text.ToLower().Trim();
-        if (string.IsNullOrWhiteSpace(filterText))
-        {
-            _packets.Clear();
-            foreach (var p in _allPackets) _packets.Add(p);
-            return;
-        }
-
         var filters = filterText.Split('|').Select(f => f.Trim()).Where(f => !string.IsNullOrEmpty(f)).ToList();
         
-        var filtered = _allPackets.Where(p =>
-            filters.Any(f =>
-                p.Source.ToLower().Contains(f) ||
-                p.Destination.ToLower().Contains(f) ||
-                p.Protocol.ToLower().Contains(f) ||
-                p.Info.ToLower().Contains(f)
-            )
-        ).ToList();
-
         _packets.Clear();
-        foreach (var p in filtered) _packets.Add(p);
+        if (filters.Count == 0)
+        {
+            foreach (var p in _allPackets) _packets.Add(p);
+        }
+        else
+        {
+            var filtered = _allPackets.Where(p => filters.Any(f =>
+                p.Source.ToLower().Contains(f) || p.Destination.ToLower().Contains(f) ||
+                p.Protocol.ToLower().Contains(f) || p.Info.ToLower().Contains(f)
+            )).ToList();
+            foreach (var p in filtered) _packets.Add(p);
+        }
     }
 
     private void OnProtocolDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -197,39 +178,20 @@ public partial class MainWindow : Window
     private void OnPacketSelected(object sender, SelectionChangedEventArgs e)
     {
         if (PacketGrid.SelectedItem is not PacketRow packet || packet.RawPacket == null) return;
-        
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"=== Packet #{packet.No} ===");
-        sb.AppendLine($"Time: {packet.Time}");
-        sb.AppendLine($"Length: {packet.Length} bytes");
-        sb.AppendLine();
+        sb.AppendLine($"=== Packet #{packet.No} ===\nTime: {packet.Time}\nLength: {packet.Length} bytes\n");
 
         var ipPacket = packet.RawPacket.Extract<IPPacket>();
         if (ipPacket != null)
-        {
-            sb.AppendLine($"Source IP: {ipPacket.SourceAddress}");
-            sb.AppendLine($"Dest IP: {ipPacket.DestinationAddress}");
-            sb.AppendLine($"TTL: {ipPacket.TimeToLive}");
-            sb.AppendLine();
-        }
+            sb.AppendLine($"Source: {ipPacket.SourceAddress}\nDest: {ipPacket.DestinationAddress}\nTTL: {ipPacket.TimeToLive}\n");
 
         var tcpPacket = packet.RawPacket.Extract<TcpPacket>();
         if (tcpPacket != null)
-        {
-            sb.AppendLine($"TCP Source Port: {tcpPacket.SourcePort}");
-            sb.AppendLine($"TCP Dest Port: {tcpPacket.DestinationPort}");
-            sb.AppendLine($"Seq: {tcpPacket.SequenceNumber}");
-            sb.AppendLine($"Ack: {tcpPacket.AcknowledgmentNumber}");
-            sb.AppendLine();
-        }
+            sb.AppendLine($"TCP {tcpPacket.SourcePort}→{tcpPacket.DestinationPort}\nSeq: {tcpPacket.SequenceNumber}\nAck: {tcpPacket.AcknowledgmentNumber}\n");
 
         var udpPacket = packet.RawPacket.Extract<UdpPacket>();
         if (udpPacket != null)
-        {
-            sb.AppendLine($"UDP Source Port: {udpPacket.SourcePort}");
-            sb.AppendLine($"UDP Dest Port: {udpPacket.DestinationPort}");
-            sb.AppendLine();
-        }
+            sb.AppendLine($"UDP {udpPacket.SourcePort}→{udpPacket.DestinationPort}\n");
 
         DetailView.Text = sb.ToString();
     }
