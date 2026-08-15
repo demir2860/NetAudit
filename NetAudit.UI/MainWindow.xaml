@@ -1,7 +1,7 @@
 <Window x:Class="NetAudit.UI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="NetAudit Pro" Height="800" Width="1400"
+        Title="NetAudit Pro - Quick Test | Switch Test" Height="800" Width="1400"
         Background="#F5F7FA" WindowStartupLocation="CenterScreen"
         FontFamily="Segoe UI" FontSize="11">
 
@@ -14,10 +14,8 @@
         <!-- LEFT MENU -->
         <StackPanel Grid.Column="0" Background="#F0F0F0" Orientation="Vertical" Margin="10">
             <TextBlock Text="NetAudit Pro" FontSize="14" FontWeight="Bold" Margin="0,0,0,20" Foreground="#333"/>
-            <Button x:Name="BtnCapture" Content="📊 Capture" Padding="10,8" Margin="0,0,0,5" Background="#1565C0" Foreground="White" FontWeight="Bold" Click="OnTabCapture"/>
-            <Button x:Name="BtnNetDiag" Content="🔌 Network Diag" Padding="10,8" Margin="0,0,0,5" Background="#E0E0E0" Foreground="#333" Click="OnTabNetworkDiag"/>
-            <Button x:Name="BtnSrvDiag" Content="🖥 Server Diag" Padding="10,8" Margin="0,0,0,5" Background="#E0E0E0" Foreground="#333" Click="OnTabServerDiag"/>
-            <Button x:Name="BtnReports" Content="📄 Reports" Padding="10,8" Margin="0,0,0,5" Background="#E0E0E0" Foreground="#333" Click="OnTabReports"/>
+            <Button x:Name="BtnCapture" Content="⚡ Quick Test" Padding="10,8" Margin="0,0,0,5" Background="#1565C0" Foreground="White" FontWeight="Bold" Click="OnTabCapture"/>
+            <Button x:Name="BtnNetDiag" Content="🌐 Switch Test" Padding="10,8" Margin="0,0,0,5" Background="#E0E0E0" Foreground="#333" Click="OnTabNetworkDiag"/>
         </StackPanel>
 
         <!-- RIGHT CONTENT (Tab Container) -->

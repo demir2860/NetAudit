@@ -50,17 +50,6 @@ public partial class MainWindow : Window
         UpdateTabButtons("NetDiag");
     }
 
-    private void OnTabServerDiag(object sender, RoutedEventArgs e)
-    {
-        System.Windows.MessageBox.Show("Server Diagnostics - Coming soon", "Info");
-        UpdateTabButtons("SrvDiag");
-    }
-
-    private void OnTabReports(object sender, RoutedEventArgs e)
-    {
-        System.Windows.MessageBox.Show("Reports - Coming soon", "Info");
-        UpdateTabButtons("Reports");
-    }
 
     private void UpdateTabButtons(string activeTab)
     {
