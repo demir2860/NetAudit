@@ -45,6 +45,7 @@ public partial class MainWindow : Window
 
     private void OnTabNetworkDiag(object sender, RoutedEventArgs e)
     {
+        CaptureTabGrid.Visibility = Visibility.Collapsed;
         var page = new NetworkDiagPage();
         ContentFrame.Content = page;
         UpdateTabButtons("NetDiag");
