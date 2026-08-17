@@ -145,6 +145,7 @@ public partial class NetworkDiagPage : Page
             }
 
             string args = $"-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 " +
+                         $"-o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa " +
                          $"-p {port} {username}@{host} \"{command}\"";
 
             var proc = new Process
