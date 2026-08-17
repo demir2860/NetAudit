@@ -138,60 +138,98 @@ public partial class NetworkDiagPage : Page
     {
         try
         {
+            // Try sshpass first (better for password auth)
+            string sshpassPath = FindExecutable("sshpass");
+            if (!string.IsNullOrEmpty(sshpassPath))
+            {
+                return RunWithSshpass(sshpassPath, host, port, username, password, command);
+            }
+
+            // Fallback to ssh with key-based auth only
             string sshPath = FindSshExecutable();
             if (string.IsNullOrEmpty(sshPath))
             {
                 throw new Exception("SSH executable not found. Install OpenSSH or Git Bash.");
             }
 
+            // Try key-based auth (no password prompt)
             string args = $"-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 " +
                          $"-o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa " +
-                         $"-o MACs=+hmac-sha1 " +
+                         $"-o MACs=+hmac-sha1 -o PasswordAuthentication=no " +
                          $"-p {port} {username}@{host} \"{command}\"";
 
-            var proc = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = sshPath,
-                    Arguments = args,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                    StandardOutputEncoding = System.Text.Encoding.UTF8,
-                    StandardErrorEncoding = System.Text.Encoding.UTF8
-                }
-            };
-
-            // Handle password via stdin (limited support)
-            if (!string.IsNullOrEmpty(password))
-            {
-                proc.StartInfo.RedirectStandardInput = true;
-            }
-
-            proc.Start();
-
-            string output = proc.StandardOutput.ReadToEnd();
-            string error = proc.StandardError.ReadToEnd();
-
-            if (!proc.WaitForExit(10000)) // 10 sec timeout
-            {
-                proc.Kill();
-                throw new TimeoutException("SSH command timeout");
-            }
-
-            if (proc.ExitCode != 0 && string.IsNullOrEmpty(output))
-            {
-                throw new Exception($"SSH error: {error}");
-            }
-
-            return output;
+            return ExecuteSshProcess(sshPath, args);
         }
         catch (Exception ex)
         {
             throw new Exception($"SSH execution failed: {ex.Message}", ex);
         }
+    }
+
+    private string RunWithSshpass(string sshpassPath, string host, int port, string username, string password, string command)
+    {
+        string args = $"-p '{password}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null " +
+                     $"-o ConnectTimeout=5 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa " +
+                     $"-o MACs=+hmac-sha1 -p {port} {username}@{host} \"{command}\"";
+        return ExecuteSshProcess(sshpassPath, args);
+    }
+
+    private string ExecuteSshProcess(string executable, string args)
+    {
+        var proc = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = executable,
+                Arguments = args,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+                StandardErrorEncoding = System.Text.Encoding.UTF8
+            }
+        };
+
+        proc.Start();
+        string output = proc.StandardOutput.ReadToEnd();
+        string error = proc.StandardError.ReadToEnd();
+
+        if (!proc.WaitForExit(15000)) // 15 sec timeout
+        {
+            proc.Kill();
+            throw new TimeoutException("SSH command timeout after 15 seconds");
+        }
+
+        if (proc.ExitCode != 0 && string.IsNullOrEmpty(output))
+        {
+            throw new Exception($"SSH error: {error}");
+        }
+
+        return output;
+    }
+
+    private string FindExecutable(string name)
+    {
+        try
+        {
+            var proc = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "which",
+                    Arguments = name,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                }
+            };
+            proc.Start();
+            string path = proc.StandardOutput.ReadToEnd().Trim();
+            proc.WaitForExit(2000);
+            return !string.IsNullOrEmpty(path) ? path : null;
+        }
+        catch { return null; }
     }
 
     private string FindSshExecutable()
