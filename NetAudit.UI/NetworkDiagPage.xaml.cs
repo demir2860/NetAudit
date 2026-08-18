@@ -213,19 +213,24 @@ public partial class NetworkDiagPage : Page
     {
         try
         {
+            // Windows: use "where", Unix: use "which"
+            string findCmd = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                System.Runtime.InteropServices.OSPlatform.Windows) ? "where" : "which";
+
             var proc = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = "which",
+                    FileName = findCmd,
                     Arguments = name,
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
+                    RedirectStandardError = true,
                     CreateNoWindow = true
                 }
             };
             proc.Start();
-            string path = proc.StandardOutput.ReadToEnd().Trim();
+            string path = proc.StandardOutput.ReadToEnd().Trim().Split('\n')[0]; // First match
             proc.WaitForExit(2000);
             return !string.IsNullOrEmpty(path) ? path : null;
         }
