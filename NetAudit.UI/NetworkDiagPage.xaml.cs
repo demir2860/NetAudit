@@ -169,8 +169,8 @@ public partial class NetworkDiagPage : Page
 
         var lines = logs.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
 
-        int errorCount = lines.Count(l => Regex.IsMatch(l, @"ERROR|CRIT", RegexOptions.IgnoreCase));
-        int warningCount = lines.Count(l => Regex.IsMatch(l, @"WARN", RegexOptions.IgnoreCase));
+        int errorCount = lines.Count(l => Regex.IsMatch(l, @"ERROR|CRIT|%.*-[0-3]-", RegexOptions.IgnoreCase));
+        int warningCount = lines.Count(l => Regex.IsMatch(l, @"WARN|%.*-4-", RegexOptions.IgnoreCase));
 
         _analysisResults.Add(new LogEntry
         {
@@ -178,27 +178,67 @@ public partial class NetworkDiagPage : Page
             Message = $"Lines: {lines.Length} | Errors: {errorCount} | Warnings: {warningCount}"
         });
 
+        // Show actual error lines
+        var errorLines = lines
+            .Where(l => Regex.IsMatch(l, @"ERROR|CRIT|%.*-[0-3]-", RegexOptions.IgnoreCase))
+            .Take(5)
+            .ToList();
+
+        if (errorLines.Any())
+        {
+            _analysisResults.Add(new LogEntry
+            {
+                Severity = "🔴 ERRORS",
+                Message = string.Join("\n  ", errorLines.Select((e, i) => $"{i+1}. {e.Substring(0, Math.Min(100, e.Length))}"))
+            });
+        }
+
+        // Show warning lines
+        var warnLines = lines
+            .Where(l => Regex.IsMatch(l, @"WARN|%.*-4-", RegexOptions.IgnoreCase))
+            .Take(3)
+            .ToList();
+
+        if (warnLines.Any())
+        {
+            _analysisResults.Add(new LogEntry
+            {
+                Severity = "🟡 WARNINGS",
+                Message = string.Join("\n  ", warnLines.Select((w, i) => $"{i+1}. {w.Substring(0, Math.Min(80, w.Length))}"))
+            });
+        }
+
+        // Critical patterns
         var criticalPatterns = new[] {
             (@"interface.*down|port.*down|link down", "🔴 Interface Down"),
             (@"memory|buffer|overfl", "🔴 Memory Issue"),
             (@"cpu.*high", "🔴 CPU High"),
-            (@"restart|reload", "🔴 Restart Detected"),
+            (@"restart|reload", "🔴 Device Restart"),
         };
 
         foreach (var (pattern, label) in criticalPatterns)
         {
             if (lines.Any(l => Regex.IsMatch(l, pattern, RegexOptions.IgnoreCase)))
             {
-                _analysisResults.Add(new LogEntry { Severity = label, Message = "Found in logs" });
+                _analysisResults.Add(new LogEntry { Severity = label, Message = "✓ Detected" });
             }
         }
 
+        // Recommendation
         if (errorCount == 0 && warningCount == 0)
         {
             _analysisResults.Add(new LogEntry
             {
                 Severity = "✓ STATUS",
-                Message = "No errors/warnings found"
+                Message = "Device healthy - no errors or warnings found"
+            });
+        }
+        else
+        {
+            _analysisResults.Add(new LogEntry
+            {
+                Severity = "💡 ACTION",
+                Message = "Review errors above and take corrective action. Check device configuration and health."
             });
         }
     }
