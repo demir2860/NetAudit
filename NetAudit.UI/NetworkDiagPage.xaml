@@ -46,12 +46,18 @@
                         <PasswordBox x:Name="TxtPassword" Width="250" Padding="8,6"/>
                     </StackPanel>
 
-                    <!-- Buttons -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
-                        <Button x:Name="BtnTestConnection" Content="✓ Test Connection" Padding="14,6" Background="#2E7D32" Foreground="White" FontWeight="Bold" Click="OnTestConnection" Margin="0,0,10,0"/>
-                        <Button x:Name="BtnRunDiagnostic" Content="▶ Run Diagnostic" Padding="14,6" Background="#1565C0" Foreground="White" FontWeight="Bold" Click="OnRunDiagnostic" IsEnabled="False" Margin="0,0,10,0"/>
-                        <Button x:Name="BtnGenerateReport" Content="📄 Generate Report" Padding="14,6" Background="#7B1FA2" Foreground="White" FontWeight="Bold" Click="OnGenerateReport" IsEnabled="False"/>
-                    </StackPanel>
+                    <!-- Buttons (Grid for better layout) -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="BtnTestConnection" Grid.Column="0" Content="✓ Test Connection" Padding="14,6" Background="#2E7D32" Foreground="White" FontWeight="Bold" Click="OnTestConnection" Margin="0,0,10,0"/>
+                        <Button x:Name="BtnRunDiagnostic" Grid.Column="1" Content="▶ Run Diagnostic" Padding="14,6" Background="#1565C0" Foreground="White" FontWeight="Bold" Click="OnRunDiagnostic" IsEnabled="False" Margin="0,0,10,0"/>
+                        <Button x:Name="BtnGenerateReport" Grid.Column="2" Content="📄 Generate Report" Padding="14,6" Background="#7B1FA2" Foreground="White" FontWeight="Bold" Click="OnGenerateReport" IsEnabled="False" Margin="0,0,0,0"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 
