@@ -14,7 +14,7 @@
                     <!-- IP Address -->
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                         <TextBlock Text="Device IP" Width="120" VerticalAlignment="Center" FontWeight="Bold"/>
-                        <TextBox x:Name="TxtDeviceIP" Width="250" Padding="8,6" Foreground="#999" Text="e.g. 192.168.1.10"/>
+                        <TextBox x:Name="TxtDeviceIP" Width="250" Padding="8,6"/>
                     </StackPanel>
 
                     <!-- Port -->

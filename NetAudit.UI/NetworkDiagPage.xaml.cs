@@ -19,6 +19,7 @@ public partial class NetworkDiagPage : Page
     {
         InitializeComponent();
         ErrorBorder.Visibility = Visibility.Collapsed;
+        TxtDeviceIP.GotFocus += (s, e) => TxtDeviceIP.SelectAll();
     }
 
     private void OnTestConnection(object sender, RoutedEventArgs e)
@@ -192,10 +193,22 @@ public partial class NetworkDiagPage : Page
                 _currentLogs = cmd.Execute();
             }
 
+            // Check for command errors in output
+            if (_currentLogs.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                _currentLogs.Contains("syntax", StringComparison.OrdinalIgnoreCase) ||
+                _currentLogs.Contains("unknown command", StringComparison.OrdinalIgnoreCase))
+            {
+                ErrorText.Text = $"❌ Device rejected command:\n{_currentLogs}\n\nTry different vendor type or SSH login details.";
+                ErrorBorder.Visibility = Visibility.Visible;
+                BtnGenerateReport.IsEnabled = false;
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(_currentLogs))
             {
                 ErrorText.Text = "⚠️ No logs returned. Device may have no logs or logging disabled.";
                 ErrorBorder.Visibility = Visibility.Visible;
+                BtnGenerateReport.IsEnabled = false;
                 return;
             }
 
@@ -210,6 +223,7 @@ public partial class NetworkDiagPage : Page
             ErrorText.Text = $"❌ Error: {ex.Message}";
             ErrorBorder.Visibility = Visibility.Visible;
             _isConnected = false;
+            BtnGenerateReport.IsEnabled = false;
         }
         finally
         {
