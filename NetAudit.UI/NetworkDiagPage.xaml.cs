@@ -225,7 +225,7 @@ public partial class NetworkDiagPage : Page
         }
     }
 
-    private void OnRunDiagnostic(object sender, RoutedEventArgs e)
+    private async void OnRunDiagnostic(object sender, RoutedEventArgs e)
     {
         if (!_isConnected || _sshClient == null)
         {
@@ -250,12 +250,10 @@ public partial class NetworkDiagPage : Page
             string vendor = (CmbVendor.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Cisco IOS";
             string logCommand = GetLogCommand(vendor);
 
-            StatusText.Text = "⏳ Fetching logs...";
+            StatusText.Text = "⏳ Fetching logs from device (may take up to 20 seconds)...";
 
-            using (var cmd = _sshClient.CreateCommand(logCommand))
-            {
-                _currentLogs = cmd.Execute();
-            }
+            var cmd = _sshClient.CreateCommand(logCommand);
+            _currentLogs = await System.Threading.Tasks.Task.Run(() => cmd.Execute());
 
             // Check for command errors in output
             if (_currentLogs.Contains("error", StringComparison.OrdinalIgnoreCase) ||
