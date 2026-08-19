@@ -237,6 +237,7 @@ public partial class NetworkDiagPage : Page
         {
             "Cisco IOS" => "show log | head -50",
             "Cisco IOS-XE" => "show log | head -50",
+            "Cisco Nexus (NX-OS)" => "show logging last 50",
             "Huawei VRP" => "display logbuffer | head -50",
             "Aruba OS" => "show log | head -50",
             _ => "show log | head -50"

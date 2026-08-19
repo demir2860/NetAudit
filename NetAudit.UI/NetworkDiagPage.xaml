@@ -29,6 +29,7 @@
                         <ComboBox x:Name="CmbVendor" Width="200" Padding="8,6">
                             <ComboBoxItem>Cisco IOS</ComboBoxItem>
                             <ComboBoxItem>Cisco IOS-XE</ComboBoxItem>
+                            <ComboBoxItem>Cisco Nexus (NX-OS)</ComboBoxItem>
                             <ComboBoxItem>Huawei VRP</ComboBoxItem>
                             <ComboBoxItem>Aruba OS</ComboBoxItem>
                         </ComboBox>
