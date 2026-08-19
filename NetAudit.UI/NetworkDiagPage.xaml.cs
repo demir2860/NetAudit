@@ -11,6 +11,7 @@ namespace NetAudit.UI;
 public partial class NetworkDiagPage : Page
 {
     private SshClient? _sshClient;
+    private bool _isConnected = false;
     private string _currentLogs = string.Empty;
     private ObservableCollection<LogEntry> _analysisResults = new();
 
@@ -76,6 +77,7 @@ public partial class NetworkDiagPage : Page
 
             StatusText.Text = "✓ TCP OK\n✓ SSH OK\n✓ Device online";
             StatusBorder.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(232, 245, 233));
+            _isConnected = true;
             BtnRunDiagnostic.IsEnabled = true;
         }
         catch (Exception ex)
@@ -83,6 +85,7 @@ public partial class NetworkDiagPage : Page
             ErrorText.Text = $"❌ Connection failed:\n{ex.Message}";
             ErrorBorder.Visibility = Visibility.Visible;
             BtnRunDiagnostic.IsEnabled = false;
+            _isConnected = false;
             _sshClient?.Dispose();
             _sshClient = null;
         }
@@ -94,7 +97,7 @@ public partial class NetworkDiagPage : Page
 
     private void OnRunDiagnostic(object sender, RoutedEventArgs e)
     {
-        if (_sshClient == null || !_sshClient.IsConnected)
+        if (!_isConnected || _sshClient == null)
         {
             MessageBox.Show("Not connected. Test connection first.", "Network Diagnostics");
             return;
