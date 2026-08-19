@@ -24,7 +24,7 @@ public partial class NetworkDiagPage : Page
         TxtDeviceIP.GotFocus += (s, e) => TxtDeviceIP.SelectAll();
     }
 
-    private void OnTestConnection(object sender, RoutedEventArgs e)
+    private async void OnTestConnection(object sender, RoutedEventArgs e)
     {
         BtnTestConnection.IsEnabled = false;
         BtnGenerateReport.IsEnabled = false;
@@ -58,21 +58,19 @@ public partial class NetworkDiagPage : Page
 
             StatusText.Text = "✓ TCP OK\n⏳ SSH auth...";
 
-            // Connect with timeout
-            var connectTask = System.Threading.Tasks.Task.Run(() => _sshClient.Connect());
-            if (!connectTask.Wait(TimeSpan.FromSeconds(20)))
-            {
-                throw new TimeoutException("SSH connection timeout");
-            }
+            // Connect with timeout (async)
+            await System.Threading.Tasks.Task.Run(() => _sshClient.Connect());
 
             if (!_sshClient.IsConnected)
             {
                 throw new Exception("SSH connection failed");
             }
 
-            // Test command
+            StatusText.Text = "✓ TCP OK\n✓ SSH OK\n⏳ Testing device...";
+
+            // Test command (async)
             var cmd = _sshClient.CreateCommand("show version | head -1");
-            string testOutput = cmd.Execute();
+            string testOutput = await System.Threading.Tasks.Task.Run(() => cmd.Execute());
 
             if (string.IsNullOrWhiteSpace(testOutput))
             {
