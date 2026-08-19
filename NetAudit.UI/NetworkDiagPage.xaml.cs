@@ -155,11 +155,11 @@ public partial class NetworkDiagPage : Page
     {
         return vendor switch
         {
-            "Cisco IOS" => "show logging",
-            "Cisco IOS-XE" => "show logging",
-            "Huawei VRP" => "display logbuffer",
-            "Aruba OS" => "show log",
-            _ => "show logging"
+            "Cisco IOS" => "show log | head -50",
+            "Cisco IOS-XE" => "show log | head -50",
+            "Huawei VRP" => "display logbuffer | head -50",
+            "Aruba OS" => "show log | head -50",
+            _ => "show log | head -50"
         };
     }
 
