@@ -33,7 +33,7 @@ public partial class NetworkDiagPage : Page
             string host = TxtDeviceIP.Text.Trim();
             if (!int.TryParse(TxtPort.Text.Trim(), out int port)) port = 22;
             string username = TxtUsername.Text.Trim();
-            string password = TxtPassword.Text.Trim();
+            string password = TxtPassword.Password;
 
             if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(username))
             {
@@ -108,7 +108,7 @@ public partial class NetworkDiagPage : Page
         {
             var saveDialog = new Microsoft.Win32.SaveFileDialog
             {
-                FileName = $"NetAudit-NetworkDiag-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
+                FileName = $"NetAudit-Diag-{TxtDeviceIP.Text}-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
                 DefaultExt = ".txt",
                 Filter = "Text Files (*.txt)|*.txt"
             };
@@ -116,44 +116,47 @@ public partial class NetworkDiagPage : Page
             if (saveDialog.ShowDialog() != true) return;
 
             var report = new System.Text.StringBuilder();
-            report.AppendLine("═══════════════════════════════════════════════════════════════════");
-            report.AppendLine("            NETWORK DIAGNOSTICS REPORT - SWITCH ANALYSIS");
-            report.AppendLine("═══════════════════════════════════════════════════════════════════");
+            report.AppendLine("========================================================================");
+            report.AppendLine("                  NETWORK DEVICE DIAGNOSTICS REPORT");
+            report.AppendLine("========================================================================");
             report.AppendLine();
-            report.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-            report.AppendLine();
-
-            report.AppendLine("DEVICE INFORMATION");
-            report.AppendLine("─────────────────────────────────────");
-            report.AppendLine($"Device IP:  {TxtDeviceIP.Text}");
-            report.AppendLine($"SSH Port:   {TxtPort.Text}");
-            report.AppendLine($"Vendor:     {(CmbVendor.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Unknown"}");
-            report.AppendLine($"Username:   {TxtUsername.Text}");
+            report.AppendLine($"Timestamp:  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             report.AppendLine();
 
-            report.AppendLine("LOG ANALYSIS");
-            report.AppendLine("─────────────────────────────────────");
+            report.AppendLine("-- DEVICE CONNECTION --");
+            report.AppendLine($"IP Address:  {TxtDeviceIP.Text}");
+            report.AppendLine($"SSH Port:    {TxtPort.Text}");
+            report.AppendLine($"Device Type: {(CmbVendor.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Unknown"}");
+            report.AppendLine();
+
+            report.AppendLine("-- ANALYSIS RESULTS --");
             foreach (var entry in _analysisResults)
             {
                 report.AppendLine($"{entry.Severity}");
-                report.AppendLine($"  {entry.Message}");
+                if (entry.Message.Contains("\n"))
+                {
+                    report.AppendLine($"{entry.Message}");
+                }
+                else
+                {
+                    report.AppendLine($"    {entry.Message}");
+                }
                 report.AppendLine();
             }
 
-            report.AppendLine("RAW LOG DATA");
-            report.AppendLine("─────────────────────────────────────");
+            report.AppendLine("-- RAW LOG OUTPUT --");
             report.AppendLine(_currentLogs);
             report.AppendLine();
 
-            report.AppendLine("═══════════════════════════════════════════════════════════════════");
+            report.AppendLine("========================================================================");
             report.AppendLine("End of Report");
 
             System.IO.File.WriteAllText(saveDialog.FileName, report.ToString());
-            MessageBox.Show($"Report saved to:\n{saveDialog.FileName}", "Report Generated");
+            MessageBox.Show($"Report saved:\n{saveDialog.FileName}", "✓ Report Generated");
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Error saving report: {ex.Message}", "Error");
+            MessageBox.Show($"Error: {ex.Message}", "Cannot Save Report");
         }
     }
 
@@ -234,11 +237,12 @@ public partial class NetworkDiagPage : Page
 
         int errorCount = lines.Count(l => Regex.IsMatch(l, @"ERROR|CRIT|%.*-[0-3]-", RegexOptions.IgnoreCase));
         int warningCount = lines.Count(l => Regex.IsMatch(l, @"WARN|%.*-4-", RegexOptions.IgnoreCase));
+        int totalLines = lines.Length;
 
         _analysisResults.Add(new LogEntry
         {
-            Severity = "📊 SUMMARY",
-            Message = $"Lines: {lines.Length} | Errors: {errorCount} | Warnings: {warningCount}"
+            Severity = "ℹ️  LOG SCAN",
+            Message = $"Scanned: {totalLines} lines | Critical: {errorCount} | Warning: {warningCount}"
         });
 
         // Show actual error lines
@@ -251,8 +255,16 @@ public partial class NetworkDiagPage : Page
         {
             _analysisResults.Add(new LogEntry
             {
-                Severity = "🔴 ERRORS",
-                Message = string.Join("\n  ", errorLines.Select((e, i) => $"{i+1}. {e.Substring(0, Math.Min(100, e.Length))}"))
+                Severity = "🔴 CRITICAL ERRORS",
+                Message = string.Join("\n  ", errorLines.Select((e, i) => $"[{i+1}] {e.Substring(0, Math.Min(95, e.Length))}"))
+            });
+        }
+        else
+        {
+            _analysisResults.Add(new LogEntry
+            {
+                Severity = "🔴 CRITICAL ERRORS",
+                Message = "None detected"
             });
         }
 
@@ -267,41 +279,59 @@ public partial class NetworkDiagPage : Page
             _analysisResults.Add(new LogEntry
             {
                 Severity = "🟡 WARNINGS",
-                Message = string.Join("\n  ", warnLines.Select((w, i) => $"{i+1}. {w.Substring(0, Math.Min(80, w.Length))}"))
-            });
-        }
-
-        // Critical patterns
-        var criticalPatterns = new[] {
-            (@"interface.*down|port.*down|link down", "🔴 Interface Down"),
-            (@"memory|buffer|overfl", "🔴 Memory Issue"),
-            (@"cpu.*high", "🔴 CPU High"),
-            (@"restart|reload", "🔴 Device Restart"),
-        };
-
-        foreach (var (pattern, label) in criticalPatterns)
-        {
-            if (lines.Any(l => Regex.IsMatch(l, pattern, RegexOptions.IgnoreCase)))
-            {
-                _analysisResults.Add(new LogEntry { Severity = label, Message = "✓ Detected" });
-            }
-        }
-
-        // Recommendation
-        if (errorCount == 0 && warningCount == 0)
-        {
-            _analysisResults.Add(new LogEntry
-            {
-                Severity = "✓ STATUS",
-                Message = "Device healthy - no errors or warnings found"
+                Message = string.Join("\n  ", warnLines.Select((w, i) => $"[{i+1}] {w.Substring(0, Math.Min(95, w.Length))}"))
             });
         }
         else
         {
             _analysisResults.Add(new LogEntry
             {
-                Severity = "💡 ACTION",
-                Message = "Review errors above and take corrective action. Check device configuration and health."
+                Severity = "🟡 WARNINGS",
+                Message = "None detected"
+            });
+        }
+
+        // Critical patterns
+        var criticalPatterns = new[] {
+            (@"interface.*down|port.*down|link down", "⚠️  INTERFACE DOWN"),
+            (@"memory|buffer|overfl", "⚠️  MEMORY ISSUE"),
+            (@"cpu.*high", "⚠️  CPU HIGH"),
+            (@"restart|reload", "⚠️  DEVICE RESTART"),
+        };
+
+        bool hasCritical = false;
+        foreach (var (pattern, label) in criticalPatterns)
+        {
+            if (lines.Any(l => Regex.IsMatch(l, pattern, RegexOptions.IgnoreCase)))
+            {
+                _analysisResults.Add(new LogEntry { Severity = label, Message = "Detected in logs" });
+                hasCritical = true;
+            }
+        }
+
+        // Status
+        if (!hasCritical && errorCount == 0 && warningCount == 0)
+        {
+            _analysisResults.Add(new LogEntry
+            {
+                Severity = "✓ DEVICE STATUS",
+                Message = "HEALTHY - No errors, warnings or critical patterns found"
+            });
+        }
+        else if (errorCount > 0)
+        {
+            _analysisResults.Add(new LogEntry
+            {
+                Severity = "⚡ RECOMMEND",
+                Message = "Review critical errors above immediately. Check logs for root cause and take corrective action."
+            });
+        }
+        else
+        {
+            _analysisResults.Add(new LogEntry
+            {
+                Severity = "⚡ RECOMMEND",
+                Message = "Monitor warnings and critical patterns. Review device health metrics."
             });
         }
     }
