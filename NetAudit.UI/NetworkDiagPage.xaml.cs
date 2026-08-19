@@ -24,6 +24,7 @@ public partial class NetworkDiagPage : Page
     private void OnTestConnection(object sender, RoutedEventArgs e)
     {
         BtnTestConnection.IsEnabled = false;
+        BtnGenerateReport.IsEnabled = false;
         StatusBorder.Visibility = Visibility.Collapsed;
         ErrorBorder.Visibility = Visibility.Collapsed;
 
@@ -95,6 +96,67 @@ public partial class NetworkDiagPage : Page
         }
     }
 
+    private void OnGenerateReport(object sender, RoutedEventArgs e)
+    {
+        if (_analysisResults.Count == 0)
+        {
+            MessageBox.Show("No analysis to report. Run diagnostic first.", "Network Diagnostics");
+            return;
+        }
+
+        try
+        {
+            var saveDialog = new Microsoft.Win32.SaveFileDialog
+            {
+                FileName = $"NetAudit-NetworkDiag-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
+                DefaultExt = ".txt",
+                Filter = "Text Files (*.txt)|*.txt"
+            };
+
+            if (saveDialog.ShowDialog() != true) return;
+
+            var report = new System.Text.StringBuilder();
+            report.AppendLine("═══════════════════════════════════════════════════════════════════");
+            report.AppendLine("            NETWORK DIAGNOSTICS REPORT - SWITCH ANALYSIS");
+            report.AppendLine("═══════════════════════════════════════════════════════════════════");
+            report.AppendLine();
+            report.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            report.AppendLine();
+
+            report.AppendLine("DEVICE INFORMATION");
+            report.AppendLine("─────────────────────────────────────");
+            report.AppendLine($"Device IP:  {TxtDeviceIP.Text}");
+            report.AppendLine($"SSH Port:   {TxtPort.Text}");
+            report.AppendLine($"Vendor:     {(CmbVendor.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Unknown"}");
+            report.AppendLine($"Username:   {TxtUsername.Text}");
+            report.AppendLine();
+
+            report.AppendLine("LOG ANALYSIS");
+            report.AppendLine("─────────────────────────────────────");
+            foreach (var entry in _analysisResults)
+            {
+                report.AppendLine($"{entry.Severity}");
+                report.AppendLine($"  {entry.Message}");
+                report.AppendLine();
+            }
+
+            report.AppendLine("RAW LOG DATA");
+            report.AppendLine("─────────────────────────────────────");
+            report.AppendLine(_currentLogs);
+            report.AppendLine();
+
+            report.AppendLine("═══════════════════════════════════════════════════════════════════");
+            report.AppendLine("End of Report");
+
+            System.IO.File.WriteAllText(saveDialog.FileName, report.ToString());
+            MessageBox.Show($"Report saved to:\n{saveDialog.FileName}", "Report Generated");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error saving report: {ex.Message}", "Error");
+        }
+    }
+
     private void OnRunDiagnostic(object sender, RoutedEventArgs e)
     {
         if (!_isConnected || _sshClient == null)
@@ -138,6 +200,7 @@ public partial class NetworkDiagPage : Page
             DisplayResults(vendor);
             StatusText.Text = "✓ Logs analyzed";
             ErrorBorder.Visibility = Visibility.Collapsed;
+            BtnGenerateReport.IsEnabled = true;
         }
         catch (Exception ex)
         {
