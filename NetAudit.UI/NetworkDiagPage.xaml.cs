@@ -5,6 +5,8 @@ using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using Renci.SshNet;
+using PdfSharp.Drawing;
+using PdfSharp.Pdf;
 
 namespace NetAudit.UI;
 
@@ -109,23 +111,37 @@ public partial class NetworkDiagPage : Page
         {
             var saveDialog = new Microsoft.Win32.SaveFileDialog
             {
-                FileName = $"NetAudit-Diag-{TxtDeviceIP.Text}-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
-                DefaultExt = ".txt",
-                Filter = "Text Files (*.txt)|*.txt"
+                FileName = $"NetAudit-Diag-{TxtDeviceIP.Text}-{DateTime.Now:yyyyMMdd-HHmmss}.pdf",
+                DefaultExt = ".pdf",
+                Filter = "PDF Files (*.pdf)|*.pdf"
             };
 
             if (saveDialog.ShowDialog() != true) return;
 
-            var report = new System.Text.StringBuilder();
-            report.AppendLine("========================================================================");
-            report.AppendLine("                      AĞ CİHAZ TEŞHIS RAPORU");
-            report.AppendLine("========================================================================");
-            report.AppendLine();
-            report.AppendLine($"Tarih:      {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-            report.AppendLine($"Cihaz IP:   {TxtDeviceIP.Text}");
-            report.AppendLine($"Cihaz Türü: {(CmbVendor.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Bilinmiyor"}");
-            report.AppendLine();
+            // Create PDF
+            var document = new PdfDocument();
+            var page = document.AddPage();
+            var gfx = XGraphics.FromPdfPage(page);
+            var font = new XFont("Arial", 11);
+            var fontBold = new XFont("Arial", 14);
+            var fontTitle = new XFont("Arial", 16);
 
+            double y = 40;
+            const double lineHeight = 20;
+
+            // Title
+            gfx.DrawString("AĞ CİHAZ TEŞHIS RAPORU", fontTitle, XBrushes.Black, new XRect(40, y, 500, 30));
+            y += 40;
+
+            // Device Info
+            gfx.DrawString($"Tarih: {DateTime.Now:yyyy-MM-dd HH:mm:ss}", font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+            y += lineHeight;
+            gfx.DrawString($"Cihaz IP: {TxtDeviceIP.Text}", font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+            y += lineHeight;
+            gfx.DrawString($"Cihaz Türü: {(CmbVendor.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Bilinmiyor"}", font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+            y += 30;
+
+            // Device Status
             string deviceStatus = "SORUN VAR ❌";
             int errorCount = 0, warningCount = 0;
             foreach (var entry in _analysisResults)
@@ -138,11 +154,15 @@ public partial class NetworkDiagPage : Page
                     warningCount++;
             }
 
-            report.AppendLine("-- CİHAZ DURUMU --");
-            report.AppendLine(deviceStatus);
-            report.AppendLine();
+            gfx.DrawString("CİHAZ DURUMU", fontBold, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+            y += lineHeight;
+            gfx.DrawString(deviceStatus, font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+            y += 30;
 
-            report.AppendLine("-- BULUNAN SORUNLAR --");
+            // Issues
+            gfx.DrawString("BULUNAN SORUNLAR", fontBold, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+            y += lineHeight;
+
             if (errorCount > 0 || warningCount > 0)
             {
                 int count = 1;
@@ -156,42 +176,48 @@ public partial class NetworkDiagPage : Page
                     if (msg.Contains("\n"))
                         msg = msg.Split('\n')[0];
 
-                    report.AppendLine($"{count}. {label}");
-                    report.AppendLine($"   {msg.Substring(0, Math.Min(90, msg.Length))}");
-                    report.AppendLine();
+                    gfx.DrawString($"{count}. {label}", font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+                    y += lineHeight;
+                    gfx.DrawString($"   {msg.Substring(0, Math.Min(90, msg.Length))}", font, XBrushes.Gray, new XRect(50, y, 480, lineHeight));
+                    y += lineHeight + 5;
                     count++;
                 }
             }
             else
             {
-                report.AppendLine("Sorun bulunamadı. Cihaz normal çalışıyor.");
-                report.AppendLine();
+                gfx.DrawString("Sorun bulunamadı. Cihaz normal çalışıyor.", font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+                y += lineHeight;
             }
 
-            report.AppendLine("-- ÖNERİLER --");
+            y += 15;
+
+            // Recommendations
+            gfx.DrawString("ÖNERİLER", fontBold, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+            y += lineHeight;
+
             if (errorCount > 0)
             {
-                report.AppendLine("• Network administratörüne haber ver");
-                report.AppendLine("• Cihaz konfigürasyonunu kontrol et");
-                report.AppendLine("• Kablo bağlantılarını doğrula");
+                gfx.DrawString("• Network administratörüne haber ver", font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+                y += lineHeight;
+                gfx.DrawString("• Cihaz konfigürasyonunu kontrol et", font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+                y += lineHeight;
+                gfx.DrawString("• Kablo bağlantılarını doğrula", font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
             }
             else if (warningCount > 0)
             {
-                report.AppendLine("• Cihazı yakından takip et");
-                report.AppendLine("• Uyarıları not et");
+                gfx.DrawString("• Cihazı yakından takip et", font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+                y += lineHeight;
+                gfx.DrawString("• Uyarıları not et", font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
             }
             else
             {
-                report.AppendLine("• Rutin bakım şemasına devam et");
-                report.AppendLine("• Aylık kontrol yap");
+                gfx.DrawString("• Rutin bakım şemasına devam et", font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
+                y += lineHeight;
+                gfx.DrawString("• Aylık kontrol yap", font, XBrushes.Black, new XRect(40, y, 500, lineHeight));
             }
-            report.AppendLine();
 
-            report.AppendLine("========================================================================");
-            report.AppendLine("Rapor Sonu");
-
-            System.IO.File.WriteAllText(saveDialog.FileName, report.ToString());
-            MessageBox.Show($"Report saved:\n{saveDialog.FileName}", "✓ Report Generated");
+            document.Save(saveDialog.FileName);
+            MessageBox.Show($"Rapor kaydedildi:\n{saveDialog.FileName}", "✓ PDF Oluşturuldu");
         }
         catch (Exception ex)
         {
