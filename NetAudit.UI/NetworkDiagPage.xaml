@@ -32,6 +32,7 @@
                             <ComboBoxItem>Cisco Nexus (NX-OS)</ComboBoxItem>
                             <ComboBoxItem>Huawei VRP</ComboBoxItem>
                             <ComboBoxItem>Aruba OS</ComboBoxItem>
+                            <ComboBoxItem>HP ProCurve</ComboBoxItem>
                         </ComboBox>
                     </StackPanel>
 

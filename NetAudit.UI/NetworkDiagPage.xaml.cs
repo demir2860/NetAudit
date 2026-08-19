@@ -51,16 +51,16 @@ public partial class NetworkDiagPage : Page
 
             var connInfo = new PasswordConnectionInfo(host, port, username, password)
             {
-                Timeout = TimeSpan.FromSeconds(10)
+                Timeout = TimeSpan.FromSeconds(20)
             };
             _sshClient = new SshClient(connInfo);
-            _sshClient.KeepAliveInterval = TimeSpan.FromSeconds(60);
+            _sshClient.KeepAliveInterval = TimeSpan.FromSeconds(30);
 
             StatusText.Text = "✓ TCP OK\n⏳ SSH auth...";
 
             // Connect with timeout
             var connectTask = System.Threading.Tasks.Task.Run(() => _sshClient.Connect());
-            if (!connectTask.Wait(TimeSpan.FromSeconds(10)))
+            if (!connectTask.Wait(TimeSpan.FromSeconds(20)))
             {
                 throw new TimeoutException("SSH connection timeout");
             }
@@ -304,6 +304,7 @@ public partial class NetworkDiagPage : Page
             "Cisco Nexus (NX-OS)" => "show logging last 50",
             "Huawei VRP" => "display logbuffer | head -50",
             "Aruba OS" => "show logging -e -w -r",
+            "HP ProCurve" => "show logging -w -r -m",
             _ => "show log | head -50"
         };
     }
