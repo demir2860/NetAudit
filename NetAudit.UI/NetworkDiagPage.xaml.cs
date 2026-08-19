@@ -109,17 +109,27 @@ public partial class NetworkDiagPage : Page
 
         try
         {
+            if (!_isConnected || _sshClient == null || !_sshClient.IsConnected)
+            {
+                ErrorText.Text = "❌ Connection lost. Test connection again.";
+                ErrorBorder.Visibility = Visibility.Visible;
+                _isConnected = false;
+                return;
+            }
+
             string vendor = (CmbVendor.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Cisco IOS";
             string logCommand = GetLogCommand(vendor);
 
             StatusText.Text = "⏳ Fetching logs...";
 
-            var cmd = _sshClient.CreateCommand(logCommand);
-            _currentLogs = cmd.Execute();
+            using (var cmd = _sshClient.CreateCommand(logCommand))
+            {
+                _currentLogs = cmd.Execute();
+            }
 
             if (string.IsNullOrWhiteSpace(_currentLogs))
             {
-                ErrorText.Text = "⚠️ No logs returned from device";
+                ErrorText.Text = "⚠️ No logs returned. Device may have no logs or logging disabled.";
                 ErrorBorder.Visibility = Visibility.Visible;
                 return;
             }
@@ -127,11 +137,13 @@ public partial class NetworkDiagPage : Page
             AnalyzeLogs(_currentLogs);
             DisplayResults(vendor);
             StatusText.Text = "✓ Logs analyzed";
+            ErrorBorder.Visibility = Visibility.Collapsed;
         }
         catch (Exception ex)
         {
             ErrorText.Text = $"❌ Error: {ex.Message}";
             ErrorBorder.Visibility = Visibility.Visible;
+            _isConnected = false;
         }
         finally
         {
