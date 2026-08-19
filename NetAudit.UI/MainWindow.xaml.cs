@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private Dictionary<string, int> _protocolStats = new();
     private ObservableCollection<ProtocolStatItem> _protocolStatsObservable = new();
     private bool _isCapturing = false;
+    private NetworkDiagPage? _networkDiagPage;
 
     public MainWindow()
     {
@@ -46,8 +47,11 @@ public partial class MainWindow : Window
     private void OnTabNetworkDiag(object sender, RoutedEventArgs e)
     {
         CaptureTabGrid.Visibility = Visibility.Collapsed;
-        var page = new NetworkDiagPage();
-        ContentFrame.Content = page;
+        if (_networkDiagPage == null)
+        {
+            _networkDiagPage = new NetworkDiagPage();
+        }
+        ContentFrame.Content = _networkDiagPage;
         UpdateTabButtons("NetDiag");
     }
 
