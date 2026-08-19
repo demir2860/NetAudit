@@ -118,39 +118,77 @@ public partial class NetworkDiagPage : Page
 
             var report = new System.Text.StringBuilder();
             report.AppendLine("========================================================================");
-            report.AppendLine("                  NETWORK DEVICE DIAGNOSTICS REPORT");
+            report.AppendLine("                      AĞ CİHAZ TEŞHIS RAPORU");
             report.AppendLine("========================================================================");
             report.AppendLine();
-            report.AppendLine($"Timestamp:  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            report.AppendLine($"Tarih:      {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            report.AppendLine($"Cihaz IP:   {TxtDeviceIP.Text}");
+            report.AppendLine($"Cihaz Türü: {(CmbVendor.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Bilinmiyor"}");
             report.AppendLine();
 
-            report.AppendLine("-- DEVICE CONNECTION --");
-            report.AppendLine($"IP Address:  {TxtDeviceIP.Text}");
-            report.AppendLine($"SSH Port:    {TxtPort.Text}");
-            report.AppendLine($"Device Type: {(CmbVendor.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Unknown"}");
-            report.AppendLine();
-
-            report.AppendLine("-- ANALYSIS RESULTS --");
+            string deviceStatus = "SORUN VAR ❌";
+            int errorCount = 0, warningCount = 0;
             foreach (var entry in _analysisResults)
             {
-                report.AppendLine($"{entry.Severity}");
-                if (entry.Message.Contains("\n"))
+                if (entry.Severity.Contains("HEALTHY") || entry.Severity.Contains("STATUS"))
+                    deviceStatus = "SAĞLIKLI ✓";
+                if (entry.Severity.Contains("CRITICAL") || entry.Severity.Contains("ERROR"))
+                    errorCount++;
+                if (entry.Severity.Contains("WARNINGS"))
+                    warningCount++;
+            }
+
+            report.AppendLine("-- CİHAZ DURUMU --");
+            report.AppendLine(deviceStatus);
+            report.AppendLine();
+
+            report.AppendLine("-- BULUNAN SORUNLAR --");
+            if (errorCount > 0 || warningCount > 0)
+            {
+                int count = 1;
+                foreach (var entry in _analysisResults)
                 {
-                    report.AppendLine($"{entry.Message}");
+                    if (entry.Severity.Contains("HEALTHY") || entry.Severity.Contains("STATUS") || entry.Severity.Contains("SUMMARY"))
+                        continue;
+
+                    string label = entry.Severity.Replace("🔴 ", "").Replace("🟡 ", "").Replace("⚠️  ", "").Replace("ℹ️  ", "");
+                    string msg = entry.Message;
+                    if (msg.Contains("\n"))
+                        msg = msg.Split('\n')[0];
+
+                    report.AppendLine($"{count}. {label}");
+                    report.AppendLine($"   {msg.Substring(0, Math.Min(90, msg.Length))}");
+                    report.AppendLine();
+                    count++;
                 }
-                else
-                {
-                    report.AppendLine($"    {entry.Message}");
-                }
+            }
+            else
+            {
+                report.AppendLine("Sorun bulunamadı. Cihaz normal çalışıyor.");
                 report.AppendLine();
             }
 
-            report.AppendLine("-- RAW LOG OUTPUT --");
-            report.AppendLine(_currentLogs);
+            report.AppendLine("-- ÖNERİLER --");
+            if (errorCount > 0)
+            {
+                report.AppendLine("• Network administratörüne haber ver");
+                report.AppendLine("• Cihaz konfigürasyonunu kontrol et");
+                report.AppendLine("• Kablo bağlantılarını doğrula");
+            }
+            else if (warningCount > 0)
+            {
+                report.AppendLine("• Cihazı yakından takip et");
+                report.AppendLine("• Uyarıları not et");
+            }
+            else
+            {
+                report.AppendLine("• Rutin bakım şemasına devam et");
+                report.AppendLine("• Aylık kontrol yap");
+            }
             report.AppendLine();
 
             report.AppendLine("========================================================================");
-            report.AppendLine("End of Report");
+            report.AppendLine("Rapor Sonu");
 
             System.IO.File.WriteAllText(saveDialog.FileName, report.ToString());
             MessageBox.Show($"Report saved:\n{saveDialog.FileName}", "✓ Report Generated");
