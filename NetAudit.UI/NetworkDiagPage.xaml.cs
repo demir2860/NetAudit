@@ -46,9 +46,10 @@ public partial class NetworkDiagPage : Page
 
             var connInfo = new PasswordConnectionInfo(host, port, username, password)
             {
-                Timeout = TimeSpan.FromSeconds(5)
+                Timeout = TimeSpan.FromSeconds(10)
             };
             _sshClient = new SshClient(connInfo);
+            _sshClient.KeepAliveInterval = TimeSpan.FromSeconds(60);
 
             StatusText.Text = "✓ TCP OK\n⏳ SSH auth...";
 
