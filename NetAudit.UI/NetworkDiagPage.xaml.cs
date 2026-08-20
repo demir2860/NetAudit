@@ -246,19 +246,45 @@ public partial class NetworkDiagPage : Page
             }
 
             string vendor = (CmbVendor.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Cisco IOS";
-            string logCommand = GetLogCommand(vendor);
+            string[] logCommands = GetLogCommands(vendor);
 
             StatusText.Text = "⏳ Fetching logs from device (may take up to 20 seconds)...";
 
-            var cmd = _sshClient.CreateCommand(logCommand);
-            _currentLogs = await System.Threading.Tasks.Task.Run(() => cmd.Execute());
+            _currentLogs = null;
+            int attemptCount = 0;
 
-            // Check for command errors in output
-            if (_currentLogs.Contains("error", StringComparison.OrdinalIgnoreCase) ||
-                _currentLogs.Contains("syntax", StringComparison.OrdinalIgnoreCase) ||
-                _currentLogs.Contains("unknown command", StringComparison.OrdinalIgnoreCase))
+            // Try multiple commands until one succeeds
+            foreach (var logCommand in logCommands)
             {
-                ErrorText.Text = $"❌ Device rejected command:\n{_currentLogs}\n\nTry different vendor type or SSH login details.";
+                attemptCount++;
+                StatusText.Text = $"⏳ Trying command {attemptCount}/{logCommands.Length}...";
+
+                try
+                {
+                    var cmd = _sshClient.CreateCommand(logCommand);
+                    var output = await System.Threading.Tasks.Task.Run(() => cmd.Execute());
+
+                    // Check if output is an error
+                    if (string.IsNullOrWhiteSpace(output) ||
+                        output.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                        output.Contains("syntax", StringComparison.OrdinalIgnoreCase) ||
+                        output.Contains("unknown command", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue; // Try next command
+                    }
+
+                    _currentLogs = output;
+                    break; // Success, exit loop
+                }
+                catch
+                {
+                    continue; // Try next command
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(_currentLogs))
+            {
+                ErrorText.Text = $"❌ All log commands failed for {vendor}.\n\nTried {attemptCount} commands. Check:\n• SSH credentials\n• Device supports logs\n• Different vendor type";
                 ErrorBorder.Visibility = Visibility.Visible;
                 BtnGenerateReport.IsEnabled = false;
                 return;
@@ -291,17 +317,17 @@ public partial class NetworkDiagPage : Page
         }
     }
 
-    private string GetLogCommand(string vendor)
+    private string[] GetLogCommands(string vendor)
     {
         return vendor switch
         {
-            "Cisco IOS" => "show log | head -50",
-            "Cisco IOS-XE" => "show log | head -50",
-            "Cisco Nexus (NX-OS)" => "show logging last 50",
-            "Huawei VRP" => "display logbuffer | head -50",
-            "Aruba OS" => "show logging -e -w -r",
-            "HP ProCurve" => "show logging -w -r -m",
-            _ => "show log | head -50"
+            "Cisco IOS" => new[] { "show log | head -50", "show logging | head -50", "show log" },
+            "Cisco IOS-XE" => new[] { "show log | head -50", "show logging | head -50", "show log" },
+            "Cisco Nexus (NX-OS)" => new[] { "show logging last 50", "show log | head -50", "show logging" },
+            "Huawei VRP" => new[] { "display logbuffer | head -50", "display log | head -50", "display logbuffer" },
+            "Aruba OS" => new[] { "show logging -e -w -r", "show logging -w -r", "show logging" },
+            "HP ProCurve" => new[] { "show logging -w -r -m", "show logging -w -r", "show logging" },
+            _ => new[] { "show log | head -50", "show logging", "show log" }
         };
     }
 
