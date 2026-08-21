@@ -58,8 +58,38 @@ public partial class NetworkDiagPage : Page
 
             StatusText.Text = "✓ TCP OK\n⏳ SSH auth...";
 
-            // Connect with timeout (async)
-            await System.Threading.Tasks.Task.Run(() => _sshClient.Connect());
+            // Try SSH connect with timeout (async)
+            bool sshConnected = false;
+            try
+            {
+                await System.Threading.Tasks.Task.Run(() => _sshClient.Connect());
+                sshConnected = true;
+            }
+            catch (Exception sshEx)
+            {
+                // SSH failed, try HTTP/HTTPS fallback
+                StatusText.Text = "⏳ SSH port 22 failed, trying ports 443/80...";
+
+                int[] fallbackPorts = { 443, 80 };
+                foreach (int fbPort in fallbackPorts)
+                {
+                    try
+                    {
+                        var tcpClient = new System.Net.Sockets.TcpClient();
+                        await System.Threading.Tasks.Task.Run(() => tcpClient.Connect(host, fbPort));
+                        tcpClient.Close();
+
+                        string scheme = fbPort == 443 ? "HTTPS" : "HTTP";
+                        ErrorText.Text = $"✓ SSH port 22 not available\n✓ {scheme} port {fbPort} is open\n\nFor web access: https://{host}:{fbPort}\n\nPlease use web interface to download logs or enable SSH port 22.";
+                        ErrorBorder.Visibility = Visibility.Visible;
+                        BtnRunDiagnostic.IsEnabled = false;
+                        return;
+                    }
+                    catch { }
+                }
+
+                throw new Exception($"SSH failed: {sshEx.Message}\nSSH port 22, HTTPS 443, and HTTP 80 all unreachable.");
+            }
 
             if (!_sshClient.IsConnected)
             {
