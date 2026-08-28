@@ -314,8 +314,12 @@ public partial class NetworkDiagPage : Page
                     var cmd = _sshClient.CreateCommand(logCommand);
                     var output = await System.Threading.Tasks.Task.Run(() => cmd.Execute());
 
-                    // Check if output is an error
+                    // Count actual log lines (skip empty)
+                    var outputLines = output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+                    // Check if output is valid (not error, not empty, not header-only)
                     if (string.IsNullOrWhiteSpace(output) ||
+                        outputLines.Length < 2 ||  // Need at least 2 lines to be valid log
                         output.Contains("error", StringComparison.OrdinalIgnoreCase) ||
                         output.Contains("syntax", StringComparison.OrdinalIgnoreCase) ||
                         output.Contains("unknown command", StringComparison.OrdinalIgnoreCase))
