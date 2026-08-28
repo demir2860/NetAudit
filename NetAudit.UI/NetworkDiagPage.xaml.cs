@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -384,105 +385,89 @@ public partial class NetworkDiagPage : Page
     {
         _analysisResults.Clear();
 
-        var lines = logs.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        var lines = logs.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+            .Where(l => !string.IsNullOrWhiteSpace(l))
+            .ToArray();
 
-        int errorCount = lines.Count(l => Regex.IsMatch(l, @"ERROR|CRIT|%.*-[0-3]-", RegexOptions.IgnoreCase));
-        int warningCount = lines.Count(l => Regex.IsMatch(l, @"WARN|%.*-4-", RegexOptions.IgnoreCase));
+        // Count logs by severity (W = warning, I = info, E = error)
+        int errorCount = lines.Count(l => l.StartsWith("E ") || Regex.IsMatch(l, @"ERROR|CRIT", RegexOptions.IgnoreCase));
+        int warningCount = lines.Count(l => l.StartsWith("W "));
         int totalLines = lines.Length;
 
         _analysisResults.Add(new LogEntry
         {
             Severity = "ℹ️  LOG SCAN",
-            Message = $"Scanned: {totalLines} lines | Critical: {errorCount} | Warning: {warningCount}"
+            Message = $"Scanned: {totalLines} lines | Warnings: {warningCount} | Errors: {errorCount}"
         });
 
-        // Show actual error lines
-        var errorLines = lines
-            .Where(l => Regex.IsMatch(l, @"ERROR|CRIT|%.*-[0-3]-", RegexOptions.IgnoreCase))
-            .Take(5)
-            .ToList();
+        // Detect Aruba-specific issues
+        var issues = new List<string>();
 
-        if (errorLines.Any())
+        // LLDP PVID Mismatch
+        var pvidMismatch = lines.Where(l => Regex.IsMatch(l, @"PVID mismatch", RegexOptions.IgnoreCase)).Count();
+        if (pvidMismatch > 0)
+            issues.Add($"LLDP PVID Mismatch: {pvidMismatch} instances - Check VLAN configuration on connected devices");
+
+        // Port B18 Collision/Drop
+        var b18Issues = lines.Where(l => Regex.IsMatch(l, @"port B18.*collision|drop rate", RegexOptions.IgnoreCase)).Count();
+        if (b18Issues > 0)
+            issues.Add($"Port B18 High Collision/Drop Rate: {b18Issues} alerts - Check cabling, transceiver, or link partner");
+
+        // Unsupported Transceiver
+        var transceiverIssues = lines.Where(l => Regex.IsMatch(l, @"Unsupported Transceiver", RegexOptions.IgnoreCase)).Count();
+        if (transceiverIssues > 0)
+            issues.Add("Unsupported Transceiver Detected: Replace with compatible optics (verify part numbers)");
+
+        // SNTP Failures
+        var sntpFails = lines.Where(l => Regex.IsMatch(l, @"SNTP.*Server not found|Unable to reach", RegexOptions.IgnoreCase)).Count();
+        if (sntpFails > 0)
+            issues.Add($"SNTP Server Unreachable: {sntpFails} failures - Verify NTP server IP and network connectivity");
+
+        // Auth Failures
+        var authFails = lines.Where(l => Regex.IsMatch(l, @"Invalid user name/password", RegexOptions.IgnoreCase)).Count();
+        if (authFails > 0)
+            issues.Add($"Authentication Failures: {authFails} failed login attempts - Monitor for brute-force attacks");
+
+        // Port Flapping
+        var flappingPorts = lines.Where(l => Regex.IsMatch(l, @"port.*is now (on|off)-line", RegexOptions.IgnoreCase))
+            .GroupBy(l => Regex.Match(l, @"port ([A-D]\d+)").Groups[1].Value)
+            .Where(g => g.Count() > 3)
+            .ToList();
+        if (flappingPorts.Any())
+            issues.Add($"Port Flapping Detected: {flappingPorts.Count} ports oscillating - Check cable connections and port status");
+
+        if (issues.Any())
         {
             _analysisResults.Add(new LogEntry
             {
-                Severity = "🔴 CRITICAL ERRORS",
-                Message = string.Join("\n  ", errorLines.Select((e, i) => $"[{i+1}] {e.Substring(0, Math.Min(95, e.Length))}"))
+                Severity = "🔴 ISSUES DETECTED",
+                Message = string.Join("\n  ", issues.Select((issue, i) => $"[{i+1}] {issue}"))
             });
         }
         else
-        {
-            _analysisResults.Add(new LogEntry
-            {
-                Severity = "🔴 CRITICAL ERRORS",
-                Message = "None detected"
-            });
-        }
-
-        // Show warning lines
-        var warnLines = lines
-            .Where(l => Regex.IsMatch(l, @"WARN|%.*-4-", RegexOptions.IgnoreCase))
-            .Take(3)
-            .ToList();
-
-        if (warnLines.Any())
-        {
-            _analysisResults.Add(new LogEntry
-            {
-                Severity = "🟡 WARNINGS",
-                Message = string.Join("\n  ", warnLines.Select((w, i) => $"[{i+1}] {w.Substring(0, Math.Min(95, w.Length))}"))
-            });
-        }
-        else
-        {
-            _analysisResults.Add(new LogEntry
-            {
-                Severity = "🟡 WARNINGS",
-                Message = "None detected"
-            });
-        }
-
-        // Critical patterns
-        var criticalPatterns = new[] {
-            (@"interface.*down|port.*down|link down", "⚠️  INTERFACE DOWN"),
-            (@"memory|buffer|overfl", "⚠️  MEMORY ISSUE"),
-            (@"cpu.*high", "⚠️  CPU HIGH"),
-            (@"restart|reload", "⚠️  DEVICE RESTART"),
-        };
-
-        bool hasCritical = false;
-        foreach (var (pattern, label) in criticalPatterns)
-        {
-            if (lines.Any(l => Regex.IsMatch(l, pattern, RegexOptions.IgnoreCase)))
-            {
-                _analysisResults.Add(new LogEntry { Severity = label, Message = "Detected in logs" });
-                hasCritical = true;
-            }
-        }
-
-        // Status
-        if (!hasCritical && errorCount == 0 && warningCount == 0)
         {
             _analysisResults.Add(new LogEntry
             {
                 Severity = "✓ DEVICE STATUS",
-                Message = "HEALTHY - No errors, warnings or critical patterns found"
+                Message = "HEALTHY - No critical issues detected"
             });
         }
-        else if (errorCount > 0)
+
+        // Recommendations
+        if (warningCount > 5)
         {
             _analysisResults.Add(new LogEntry
             {
-                Severity = "⚡ RECOMMEND",
-                Message = "Review critical errors above immediately. Check logs for root cause and take corrective action."
+                Severity = "📋 RECOMMENDATIONS",
+                Message = $"High warning count ({warningCount}). Review and address reported issues to maintain device stability."
             });
         }
-        else
+        else if (issues.Any())
         {
             _analysisResults.Add(new LogEntry
             {
-                Severity = "⚡ RECOMMEND",
-                Message = "Monitor warnings and critical patterns. Review device health metrics."
+                Severity = "📋 RECOMMENDATIONS",
+                Message = "Address detected issues. Verify configurations and check device connectivity."
             });
         }
     }
