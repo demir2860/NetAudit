@@ -275,13 +275,23 @@ public partial class NetworkDiagPage : Page
                 return;
             }
 
-            // Check connection is still alive
+            // Check connection is still alive - if closed, reconnect automatically
             if (!_sshClient.IsConnected)
             {
-                ErrorText.Text = "❌ SSH connection was closed. Test connection again.";
-                ErrorBorder.Visibility = Visibility.Visible;
-                _isConnected = false;
-                return;
+                StatusText.Text = "⏳ SSH session expired, reconnecting...";
+
+                try
+                {
+                    _sshClient.Connect();
+                    StatusText.Text = "✓ Reconnected. Fetching logs...";
+                }
+                catch (Exception reEx)
+                {
+                    ErrorText.Text = $"❌ Reconnection failed: {reEx.Message}";
+                    ErrorBorder.Visibility = Visibility.Visible;
+                    _isConnected = false;
+                    return;
+                }
             }
 
             string vendor = (CmbVendor.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Cisco IOS";
