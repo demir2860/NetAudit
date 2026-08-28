@@ -334,11 +334,16 @@ public partial class NetworkDiagPage : Page
 
             if (string.IsNullOrWhiteSpace(_currentLogs))
             {
-                ErrorText.Text = $"❌ All log commands failed for {vendor}.\n\nTried {attemptCount} commands. Check:\n• SSH credentials\n• Device supports logs\n• Different vendor type";
+                ErrorText.Text = $"❌ All log commands failed for {vendor}.\n\nTried {attemptCount} commands:\n{string.Join("\n", logCommands)}\n\nCheck:\n• SSH credentials\n• Device supports logs\n• Different vendor type";
                 ErrorBorder.Visibility = Visibility.Visible;
                 BtnGenerateReport.IsEnabled = false;
                 return;
             }
+
+            // Debug: Show how many lines were retrieved
+            var logLines = _currentLogs.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            StatusText.Text = $"✓ Retrieved {logLines.Length} log lines from device";
+            StatusBorder.Visibility = Visibility.Visible;
 
             if (string.IsNullOrWhiteSpace(_currentLogs))
             {
@@ -371,13 +376,43 @@ public partial class NetworkDiagPage : Page
     {
         return vendor switch
         {
-            "Cisco IOS" => new[] { "show log | head -50", "show logging | head -50", "show log" },
-            "Cisco IOS-XE" => new[] { "show log | head -50", "show logging | head -50", "show log" },
-            "Cisco Nexus (NX-OS)" => new[] { "show logging last 50", "show log | head -50", "show logging" },
-            "Huawei VRP" => new[] { "display logbuffer | head -50", "display log | head -50", "display logbuffer" },
-            "Aruba OS" => new[] { "show logging -e -w -r", "show logging -w -r", "show logging" },
-            "HP ProCurve" => new[] { "show logging -w -r -m", "show logging -w -r", "show logging" },
-            _ => new[] { "show log | head -50", "show logging", "show log" }
+            "Cisco IOS" => new[] {
+                "show log | head -50",
+                "show logging | head -50",
+                "show log",
+                "show logging"
+            },
+            "Cisco IOS-XE" => new[] {
+                "show log | head -50",
+                "show logging | head -50",
+                "show log",
+                "show logging"
+            },
+            "Cisco Nexus (NX-OS)" => new[] {
+                "show logging last 50",
+                "show log | head -50",
+                "show logging",
+                "show log"
+            },
+            "Huawei VRP" => new[] {
+                "display logbuffer | head -50",
+                "display log | head -50",
+                "display logbuffer",
+                "display log"
+            },
+            "Aruba OS" => new[] {
+                "show logging",
+                "show log",
+                "show event-log",
+                "show logging -e -w -r"
+            },
+            "HP ProCurve" => new[] {
+                "show logging",
+                "show logging -w -r",
+                "show logging -w -r -m",
+                "show log"
+            },
+            _ => new[] { "show log | head -50", "show logging", "show log", "show event-log" }
         };
     }
 
