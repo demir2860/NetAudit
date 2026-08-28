@@ -413,12 +413,8 @@ public partial class NetworkDiagPage : Page
             "Aruba OS" => new[] {
                 "show logging",
                 "show log",
-                "show event-log",
-                "show logging buffer",
-                "show buffer event",
-                "show all-logs",
-                "show logging -e -w -r",
-                "show logging oldest"
+                "display logging",
+                "display log"
             },
             "HP ProCurve" => new[] {
                 "show logging",
