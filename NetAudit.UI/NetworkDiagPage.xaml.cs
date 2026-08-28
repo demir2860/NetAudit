@@ -307,8 +307,9 @@ public partial class NetworkDiagPage : Page
             _currentLogs = null;
             int attemptCount = 0;
             var attemptLog = new List<string>();
+            const int MIN_LINES_REQUIRED = 100;
 
-            // Try multiple commands until one succeeds
+            // Try multiple commands until one succeeds with sufficient output
             foreach (var logCommand in logCommands)
             {
                 attemptCount++;
@@ -322,11 +323,12 @@ public partial class NetworkDiagPage : Page
 
                     attemptLog.Add($"[{attemptCount}] {logCommand} → {outputLines.Length} lines");
 
-                    // Accept ANY output that's not an explicit error — even 1 line is better than nothing
+                    // Reject errors, syntax errors, or insufficient output
                     if (string.IsNullOrWhiteSpace(output) ||
                         output.Contains("error", StringComparison.OrdinalIgnoreCase) ||
                         output.Contains("syntax", StringComparison.OrdinalIgnoreCase) ||
-                        output.Contains("unknown command", StringComparison.OrdinalIgnoreCase))
+                        output.Contains("unknown command", StringComparison.OrdinalIgnoreCase) ||
+                        outputLines.Length < MIN_LINES_REQUIRED)
                     {
                         continue; // Try next command
                     }
