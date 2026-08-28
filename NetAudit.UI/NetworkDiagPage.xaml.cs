@@ -156,8 +156,8 @@ public partial class NetworkDiagPage : Page
 
             // Font fallback for Windows compatibility
             var font = new XFont("Arial", 11);
-            var fontBold = new XFont("Arial", 14, XFontStyle.Bold);
-            var fontTitle = new XFont("Arial", 16, XFontStyle.Bold);
+            var fontBold = new XFont("Arial", 14);
+            var fontTitle = new XFont("Arial", 16);
 
             double y = 40;
             const double lineHeight = 20;
