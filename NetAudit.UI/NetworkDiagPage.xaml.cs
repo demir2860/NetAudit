@@ -54,7 +54,7 @@ public partial class NetworkDiagPage : Page
                 Timeout = TimeSpan.FromSeconds(20)
             };
             _sshClient = new SshClient(connInfo);
-            _sshClient.KeepAliveInterval = TimeSpan.FromSeconds(30);
+            _sshClient.KeepAliveInterval = TimeSpan.FromSeconds(10);
 
             StatusText.Text = "✓ TCP OK\n⏳ SSH auth...";
 
@@ -267,9 +267,18 @@ public partial class NetworkDiagPage : Page
 
         try
         {
-            if (!_isConnected || _sshClient == null || !_sshClient.IsConnected)
+            if (!_isConnected || _sshClient == null)
             {
                 ErrorText.Text = "❌ Connection lost. Test connection again.";
+                ErrorBorder.Visibility = Visibility.Visible;
+                _isConnected = false;
+                return;
+            }
+
+            // Check connection is still alive
+            if (!_sshClient.IsConnected)
+            {
+                ErrorText.Text = "❌ SSH connection was closed. Test connection again.";
                 ErrorBorder.Visibility = Visibility.Visible;
                 _isConnected = false;
                 return;
