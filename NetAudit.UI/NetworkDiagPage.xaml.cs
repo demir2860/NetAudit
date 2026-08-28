@@ -318,9 +318,8 @@ public partial class NetworkDiagPage : Page
 
                     attemptLog.Add($"[{attemptCount}] {logCommand} → {outputLines.Length} lines");
 
-                    // Check if output is valid: must have data, not error, minimum 5 lines for real logs
+                    // Accept ANY output that's not an explicit error — even 1 line is better than nothing
                     if (string.IsNullOrWhiteSpace(output) ||
-                        outputLines.Length < 5 ||  // Need at least 5 lines (reject header-only)
                         output.Contains("error", StringComparison.OrdinalIgnoreCase) ||
                         output.Contains("syntax", StringComparison.OrdinalIgnoreCase) ||
                         output.Contains("unknown command", StringComparison.OrdinalIgnoreCase))
@@ -329,7 +328,7 @@ public partial class NetworkDiagPage : Page
                     }
 
                     _currentLogs = output;
-                    StatusText.Text = $"✓ Success! Retrieved {outputLines.Length} lines";
+                    StatusText.Text = $"✓ Retrieved {outputLines.Length} lines";
                     break; // Success, exit loop
                 }
                 catch (Exception ex)
