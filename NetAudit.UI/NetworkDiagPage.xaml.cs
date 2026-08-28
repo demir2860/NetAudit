@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -8,6 +9,7 @@ using System.Windows.Controls;
 using Renci.SshNet;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
+using PdfSharp.Fonts;
 
 namespace NetAudit.UI;
 
@@ -151,9 +153,11 @@ public partial class NetworkDiagPage : Page
             var document = new PdfDocument();
             var page = document.AddPage();
             var gfx = XGraphics.FromPdfPage(page);
+
+            // Font fallback for Windows compatibility
             var font = new XFont("Arial", 11);
-            var fontBold = new XFont("Arial", 14);
-            var fontTitle = new XFont("Arial", 16);
+            var fontBold = new XFont("Arial", 14, XFontStyle.Bold);
+            var fontTitle = new XFont("Arial", 16, XFontStyle.Bold);
 
             double y = 40;
             const double lineHeight = 20;
