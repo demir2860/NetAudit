@@ -318,8 +318,9 @@ public partial class NetworkDiagPage : Page
 
                     attemptLog.Add($"[{attemptCount}] {logCommand} → {outputLines.Length} lines");
 
-                    // Check if output is valid (not error, not empty)
+                    // Check if output is valid: must have data, not error, minimum 5 lines for real logs
                     if (string.IsNullOrWhiteSpace(output) ||
+                        outputLines.Length < 5 ||  // Need at least 5 lines (reject header-only)
                         output.Contains("error", StringComparison.OrdinalIgnoreCase) ||
                         output.Contains("syntax", StringComparison.OrdinalIgnoreCase) ||
                         output.Contains("unknown command", StringComparison.OrdinalIgnoreCase))
