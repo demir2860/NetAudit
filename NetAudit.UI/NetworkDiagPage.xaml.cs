@@ -346,16 +346,20 @@ public partial class NetworkDiagPage : Page
                 return;
             }
 
-            // Debug: Show how many lines were retrieved
-            var logLines = _currentLogs.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            // Debug: Show raw output and line count
+            var logLines = _currentLogs.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .ToArray();
+
             StatusText.Text = $"✓ Retrieved {logLines.Length} log lines from device";
             StatusBorder.Visibility = Visibility.Visible;
 
-            if (string.IsNullOrWhiteSpace(_currentLogs))
+            // Show what was actually retrieved (for debugging)
+            ErrorText.Text = $"DEBUG: Raw output length={_currentLogs.Length} chars, {logLines.Length} non-empty lines\n\nFirst 500 chars:\n{_currentLogs.Substring(0, Math.Min(500, _currentLogs.Length))}";
+            ErrorBorder.Visibility = Visibility.Visible;
+
+            if (logLines.Length == 0)
             {
-                ErrorText.Text = "⚠️ No logs returned. Device may have no logs or logging disabled.";
-                ErrorBorder.Visibility = Visibility.Visible;
-                BtnGenerateReport.IsEnabled = false;
                 return;
             }
 
