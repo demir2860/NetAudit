@@ -463,18 +463,16 @@ public partial class NetworkDiagPage : Page
                 "display log | include warning"
             },
             "Aruba OS" => new[] {
+                "show logging; show events; show syslog",
+                "show logging; show event-log; show buffer",
+                "show events; show syslog; show debug-log",
+                "display logging; show log; show events",
+                "show syslog; display log; show crash-log",
+                "show buffer; show core; show logging",
                 "show logging",
-                "show log",
                 "show events",
                 "show syslog",
-                "show event-log",
-                "display logging",
-                "display log",
-                "show crash-log",
-                "show debug-log",
-                "show core",
-                "show buffer",
-                "show tech-support"
+                "show buffer"
             },
             "HP ProCurve" => new[] {
                 "show logging",
