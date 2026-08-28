@@ -314,12 +314,8 @@ public partial class NetworkDiagPage : Page
                     var cmd = _sshClient.CreateCommand(logCommand);
                     var output = await System.Threading.Tasks.Task.Run(() => cmd.Execute());
 
-                    // Count actual log lines (skip empty)
-                    var outputLines = output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-
-                    // Check if output is valid (not error, not empty, not header-only)
+                    // Check if output is valid (not error, not empty)
                     if (string.IsNullOrWhiteSpace(output) ||
-                        outputLines.Length < 2 ||  // Need at least 2 lines to be valid log
                         output.Contains("error", StringComparison.OrdinalIgnoreCase) ||
                         output.Contains("syntax", StringComparison.OrdinalIgnoreCase) ||
                         output.Contains("unknown command", StringComparison.OrdinalIgnoreCase))
@@ -381,42 +377,58 @@ public partial class NetworkDiagPage : Page
         return vendor switch
         {
             "Cisco IOS" => new[] {
-                "show log | head -50",
-                "show logging | head -50",
                 "show log",
-                "show logging"
+                "show logging",
+                "show log | include debug",
+                "show log | include WARNING",
+                "show log | include ERROR"
             },
             "Cisco IOS-XE" => new[] {
-                "show log | head -50",
-                "show logging | head -50",
                 "show log",
-                "show logging"
+                "show logging",
+                "show log | include debug",
+                "show log | include WARNING",
+                "show log | include ERROR"
             },
             "Cisco Nexus (NX-OS)" => new[] {
-                "show logging last 50",
-                "show log | head -50",
+                "show logging last 100",
                 "show logging",
-                "show log"
+                "show log",
+                "show logg | include WARNING",
+                "show logging | include ERROR"
             },
             "Huawei VRP" => new[] {
-                "display logbuffer | head -50",
-                "display log | head -50",
                 "display logbuffer",
-                "display log"
+                "display log buffer",
+                "display log",
+                "display log | include error",
+                "display log | include warning"
             },
             "Aruba OS" => new[] {
                 "show logging",
                 "show log",
                 "show event-log",
-                "show logging -e -w -r"
+                "show logging buffer",
+                "show buffer event",
+                "show all-logs",
+                "show logging -e -w -r",
+                "show logging oldest"
             },
             "HP ProCurve" => new[] {
                 "show logging",
+                "show logging buffer",
+                "show event-log",
+                "show log",
                 "show logging -w -r",
-                "show logging -w -r -m",
-                "show log"
+                "show logging -w -r -m"
             },
-            _ => new[] { "show log | head -50", "show logging", "show log", "show event-log" }
+            _ => new[] {
+                "show log",
+                "show logging",
+                "show log buffer",
+                "show event-log",
+                "show all-logs"
+            }
         };
     }
 
