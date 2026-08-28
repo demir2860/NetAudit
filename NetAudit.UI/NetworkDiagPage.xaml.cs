@@ -302,17 +302,21 @@ public partial class NetworkDiagPage : Page
 
             _currentLogs = null;
             int attemptCount = 0;
+            var attemptLog = new List<string>();
 
             // Try multiple commands until one succeeds
             foreach (var logCommand in logCommands)
             {
                 attemptCount++;
-                StatusText.Text = $"⏳ Trying command {attemptCount}/{logCommands.Length}...";
+                StatusText.Text = $"⏳ Trying [{attemptCount}/{logCommands.Length}]: {logCommand}";
 
                 try
                 {
                     var cmd = _sshClient.CreateCommand(logCommand);
                     var output = await System.Threading.Tasks.Task.Run(() => cmd.Execute());
+                    var outputLines = output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+                    attemptLog.Add($"[{attemptCount}] {logCommand} → {outputLines.Length} lines");
 
                     // Check if output is valid (not error, not empty)
                     if (string.IsNullOrWhiteSpace(output) ||
@@ -324,10 +328,12 @@ public partial class NetworkDiagPage : Page
                     }
 
                     _currentLogs = output;
+                    StatusText.Text = $"✓ Success! Retrieved {outputLines.Length} lines";
                     break; // Success, exit loop
                 }
-                catch
+                catch (Exception ex)
                 {
+                    attemptLog.Add($"[{attemptCount}] {logCommand} → ERROR");
                     continue; // Try next command
                 }
             }
