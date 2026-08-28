@@ -316,8 +316,8 @@ public partial class NetworkDiagPage : Page
 
                 try
                 {
-                    var cmd = _sshClient.CreateCommand(logCommand);
-                    var output = await System.Threading.Tasks.Task.Run(() => cmd.Execute());
+                    // Use interactive shell for Aruba/HP/Huawei compatibility
+                    var output = await System.Threading.Tasks.Task.Run(() => ExecuteCommandInteractive(logCommand));
                     var outputLines = output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
 
                     attemptLog.Add($"[{attemptCount}] {logCommand} → {outputLines.Length} lines");
@@ -383,6 +383,48 @@ public partial class NetworkDiagPage : Page
         finally
         {
             BtnRunDiagnostic.IsEnabled = true;
+        }
+    }
+
+    private string ExecuteCommandInteractive(string command)
+    {
+        try
+        {
+            using (var stream = _sshClient.CreateShellStream("xterm", 120, 40, 800, 600, 1024))
+            {
+                // Give device time to send banner
+                System.Threading.Thread.Sleep(500);
+                string banner = "";
+                while (stream.DataAvailable)
+                {
+                    banner += (char)stream.ReadByte();
+                }
+
+                // Send command
+                stream.WriteLine(command);
+                stream.Flush();
+
+                // Wait for output
+                System.Threading.Thread.Sleep(2000);
+
+                // Read all available output
+                string output = "";
+                while (stream.DataAvailable)
+                {
+                    output += (char)stream.ReadByte();
+                }
+
+                // Clean ANSI terminal codes and control characters
+                output = System.Text.RegularExpressions.Regex.Replace(output, @"\x1b\[[0-9;]*m", "");  // ANSI colors
+                output = System.Text.RegularExpressions.Regex.Replace(output, @"\x1b\[[0-9;]*[a-zA-Z]", ""); // ANSI cursor
+                output = System.Text.RegularExpressions.Regex.Replace(output, @"[\x00-\x08\x0B\x0C\x0E-\x1F]", ""); // Control chars
+
+                return output;
+            }
+        }
+        catch (Exception ex)
+        {
+            return $"ERROR: {ex.Message}";
         }
     }
 
