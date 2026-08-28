@@ -316,13 +316,6 @@ public partial class NetworkDiagPage : Page
 
                 try
                 {
-                    // Disable paging for vendors that use terminal pagination
-                    if (vendor.Contains("Aruba") || vendor.Contains("HP") || vendor.Contains("Huawei"))
-                    {
-                        var pageCmd = _sshClient.CreateCommand("terminal length 0");
-                        await System.Threading.Tasks.Task.Run(() => pageCmd.Execute());
-                    }
-
                     var cmd = _sshClient.CreateCommand(logCommand);
                     var output = await System.Threading.Tasks.Task.Run(() => cmd.Execute());
                     var outputLines = output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
@@ -430,10 +423,14 @@ public partial class NetworkDiagPage : Page
                 "show log",
                 "show events",
                 "show syslog",
+                "show event-log",
                 "display logging",
                 "display log",
                 "show crash-log",
-                "show debug-log"
+                "show debug-log",
+                "show core",
+                "show buffer",
+                "show tech-support"
             },
             "HP ProCurve" => new[] {
                 "show logging",
