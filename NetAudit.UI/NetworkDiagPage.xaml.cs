@@ -389,9 +389,15 @@ public partial class NetworkDiagPage : Page
             .Where(l => !string.IsNullOrWhiteSpace(l))
             .ToArray();
 
-        // Count logs by severity (W = warning, I = info, E = error)
-        int errorCount = lines.Count(l => l.StartsWith("E ") || Regex.IsMatch(l, @"ERROR|CRIT", RegexOptions.IgnoreCase));
-        int warningCount = lines.Count(l => l.StartsWith("W "));
+        // Count by severity — Vendor-agnostic (W/E/I prefix OR keyword match)
+        int errorCount = lines.Count(l =>
+            l.StartsWith("E ") ||
+            Regex.IsMatch(l, @"^\s*\*?[A-Z]*ERROR|CRIT|FATAL|FAIL|DOWN|DIED", RegexOptions.IgnoreCase));
+
+        int warningCount = lines.Count(l =>
+            l.StartsWith("W ") ||
+            Regex.IsMatch(l, @"^\s*%?[A-Z]*WARN|NOTICE|ALERT|FLAP|MISMATCH|FAIL", RegexOptions.IgnoreCase));
+
         int totalLines = lines.Length;
 
         _analysisResults.Add(new LogEntry
@@ -400,42 +406,46 @@ public partial class NetworkDiagPage : Page
             Message = $"Scanned: {totalLines} lines | Warnings: {warningCount} | Errors: {errorCount}"
         });
 
-        // Detect Aruba-specific issues
+        // Vendor-agnostic issue detection
         var issues = new List<string>();
 
-        // LLDP PVID Mismatch
-        var pvidMismatch = lines.Where(l => Regex.IsMatch(l, @"PVID mismatch", RegexOptions.IgnoreCase)).Count();
-        if (pvidMismatch > 0)
-            issues.Add($"LLDP PVID Mismatch: {pvidMismatch} instances - Check VLAN configuration on connected devices");
+        // 1. VLAN/Protocol Mismatches (LLDP, PVID, VLAN tag, trunk)
+        var vlanMismatches = lines.Where(l => Regex.IsMatch(l,
+            @"PVID mismatch|vlan.*mismatch|trunk.*mismatch|tag.*mismatch", RegexOptions.IgnoreCase)).Count();
+        if (vlanMismatches > 0)
+            issues.Add($"VLAN Configuration Mismatch: {vlanMismatches} - Verify VLAN settings on peer devices");
 
-        // Port B18 Collision/Drop
-        var b18Issues = lines.Where(l => Regex.IsMatch(l, @"port B18.*collision|drop rate", RegexOptions.IgnoreCase)).Count();
-        if (b18Issues > 0)
-            issues.Add($"Port B18 High Collision/Drop Rate: {b18Issues} alerts - Check cabling, transceiver, or link partner");
+        // 2. Interface/Port Issues (down, flap, disable, error, CRC)
+        var portIssues = lines.Where(l => Regex.IsMatch(l,
+            @"port.*down|interface.*down|link.*down|flap|CRC error|collision|drop.*rate", RegexOptions.IgnoreCase)).Count();
+        if (portIssues > 0)
+            issues.Add($"Port/Interface Issues: {portIssues} - Check cabling, transceivers, and duplex mismatch");
 
-        // Unsupported Transceiver
-        var transceiverIssues = lines.Where(l => Regex.IsMatch(l, @"Unsupported Transceiver", RegexOptions.IgnoreCase)).Count();
-        if (transceiverIssues > 0)
-            issues.Add("Unsupported Transceiver Detected: Replace with compatible optics (verify part numbers)");
+        // 3. Hardware Issues (transceiver, optics, memory, fan, power)
+        var hardwareIssues = lines.Where(l => Regex.IsMatch(l,
+            @"transceiver|optic|sfp|gbic|memory.*low|buffer.*full|fan|power|temperature|voltage", RegexOptions.IgnoreCase)).Count();
+        if (hardwareIssues > 0)
+            issues.Add($"Hardware Issues: {hardwareIssues} - Verify physical connections and component health");
 
-        // SNTP Failures
-        var sntpFails = lines.Where(l => Regex.IsMatch(l, @"SNTP.*Server not found|Unable to reach", RegexOptions.IgnoreCase)).Count();
-        if (sntpFails > 0)
-            issues.Add($"SNTP Server Unreachable: {sntpFails} failures - Verify NTP server IP and network connectivity");
+        // 4. Network Services Issues (NTP/SNTP, DNS, DHCP, spanning-tree)
+        var serviceIssues = lines.Where(l => Regex.IsMatch(l,
+            @"sntp.*fail|ntp.*fail|server.*not found|dns.*fail|dhcp.*fail|spanning.*tree.*fail|bpdu.*fail", RegexOptions.IgnoreCase)).Count();
+        if (serviceIssues > 0)
+            issues.Add($"Network Service Issues: {serviceIssues} - Verify NTP/DNS/DHCP servers and STP topology");
 
-        // Auth Failures
-        var authFails = lines.Where(l => Regex.IsMatch(l, @"Invalid user name/password", RegexOptions.IgnoreCase)).Count();
-        if (authFails > 0)
-            issues.Add($"Authentication Failures: {authFails} failed login attempts - Monitor for brute-force attacks");
+        // 5. Authentication/Security Issues
+        var authIssues = lines.Where(l => Regex.IsMatch(l,
+            @"invalid.*password|auth.*fail|login.*fail|access.*deny|unauthorized", RegexOptions.IgnoreCase)).Count();
+        if (authIssues > 0)
+            issues.Add($"Authentication Failures: {authIssues} - Monitor access logs, check credentials and policies");
 
-        // Port Flapping
-        var flappingPorts = lines.Where(l => Regex.IsMatch(l, @"port.*is now (on|off)-line", RegexOptions.IgnoreCase))
-            .GroupBy(l => Regex.Match(l, @"port ([A-D]\d+)").Groups[1].Value)
-            .Where(g => g.Count() > 3)
-            .ToList();
-        if (flappingPorts.Any())
-            issues.Add($"Port Flapping Detected: {flappingPorts.Count} ports oscillating - Check cable connections and port status");
+        // 6. Configuration/Command Issues
+        var configIssues = lines.Where(l => Regex.IsMatch(l,
+            @"syntax error|unknown command|invalid.*config|config.*fail|load.*fail", RegexOptions.IgnoreCase)).Count();
+        if (configIssues > 0)
+            issues.Add($"Configuration Errors: {configIssues} - Verify CLI syntax and configuration validity");
 
+        // Display results
         if (issues.Any())
         {
             _analysisResults.Add(new LogEntry
@@ -449,17 +459,25 @@ public partial class NetworkDiagPage : Page
             _analysisResults.Add(new LogEntry
             {
                 Severity = "✓ DEVICE STATUS",
-                Message = "HEALTHY - No critical issues detected"
+                Message = "HEALTHY - No significant issues detected"
             });
         }
 
         // Recommendations
-        if (warningCount > 5)
+        if (errorCount > 0)
         {
             _analysisResults.Add(new LogEntry
             {
                 Severity = "📋 RECOMMENDATIONS",
-                Message = $"High warning count ({warningCount}). Review and address reported issues to maintain device stability."
+                Message = $"Device has {errorCount} error(s). Investigate and resolve immediately."
+            });
+        }
+        else if (warningCount > 10)
+        {
+            _analysisResults.Add(new LogEntry
+            {
+                Severity = "📋 RECOMMENDATIONS",
+                Message = $"High warning count ({warningCount}). Review and address issues to maintain stability."
             });
         }
         else if (issues.Any())
@@ -467,7 +485,7 @@ public partial class NetworkDiagPage : Page
             _analysisResults.Add(new LogEntry
             {
                 Severity = "📋 RECOMMENDATIONS",
-                Message = "Address detected issues. Verify configurations and check device connectivity."
+                Message = "Address detected issues. Monitor device health closely."
             });
         }
     }
