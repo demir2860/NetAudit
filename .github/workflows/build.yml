@@ -27,7 +27,7 @@ jobs:
       run: dotnet build NetAudit.UI/NetAudit.UI.csproj -c Release
 
     - name: Publish Single File
-      run: dotnet publish NetAudit.UI/NetAudit.UI.csproj -c Release -o ./dist --self-contained
+      run: dotnet publish NetAudit.UI/NetAudit.UI.csproj -c Release -o ./dist --self-contained -r win-x64
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
