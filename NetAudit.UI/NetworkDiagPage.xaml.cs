@@ -307,7 +307,7 @@ public partial class NetworkDiagPage : Page
             _currentLogs = null;
             int attemptCount = 0;
             var attemptLog = new List<string>();
-            const int MIN_LINES_REQUIRED = 100;
+            const int MIN_LINES_REQUIRED = 50;
 
             // Try multiple commands until one succeeds with sufficient output
             foreach (var logCommand in logCommands)
